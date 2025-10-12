@@ -7,16 +7,16 @@ import { Platform } from "react-native";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  if (Platform.OS === 'web') {
-    const webUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    console.log('[tRPC] Using web origin:', webUrl);
-    return webUrl;
-  }
-
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
     const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
     console.log('[tRPC] Using EXPO_PUBLIC_RORK_API_BASE_URL:', url);
     return url.endsWith('/') ? url.slice(0, -1) : url;
+  }
+
+  if (Platform.OS === 'web') {
+    const webUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    console.log('[tRPC] Using web origin (fallback):', webUrl);
+    return webUrl;
   }
 
   console.warn('[tRPC] No base URL found - backend features will be disabled');
