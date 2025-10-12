@@ -85,13 +85,20 @@ export default function AuthScreen() {
 
       router.replace('/(tabs)' as any);
     } catch (error: any) {
-      console.error('Auth error:', error);
+      console.error('[Auth] Error:', error);
+      console.error('[Auth] Error type:', typeof error);
+      console.error('[Auth] Error keys:', error ? Object.keys(error) : 'null');
       
-      let errorMessage = error.message || 'Something went wrong. Please try Guest Mode.';
+      let errorMessage = error?.message || 'Something went wrong. Please try Guest Mode.';
       
-      const isBackendError = errorMessage.includes('service') || 
-                             errorMessage.includes('unavailable') || 
-                             errorMessage.includes('Guest Mode');
+      const msg = errorMessage.toLowerCase();
+      const isBackendError = msg.includes('service') || 
+                             msg.includes('unavailable') || 
+                             msg.includes('guest mode') ||
+                             msg.includes('backend') ||
+                             msg.includes('cannot connect') ||
+                             msg.includes('network') ||
+                             msg.includes('timeout');
       
       Toast.show({
         type: isBackendError ? 'info' : 'error',

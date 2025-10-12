@@ -55,11 +55,15 @@ export const trpcClient = trpc.createClient({
           console.log('[tRPC] Request to:', url);
           
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000);
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
           
           const response = await fetch(url, {
             ...options,
             signal: controller.signal,
+            headers: {
+              ...options?.headers,
+              'Content-Type': 'application/json',
+            },
           });
           
           clearTimeout(timeoutId);
@@ -83,7 +87,7 @@ export const trpcClient = trpc.createClient({
           return response;
         } catch (error: any) {
           if (error.name === 'AbortError') {
-            console.error('[tRPC] Request timeout after 15s');
+            console.error('[tRPC] Request timeout after 10s');
             throw new Error('Backend service is not responding. Please check your connection or use Guest Mode.');
           }
           
