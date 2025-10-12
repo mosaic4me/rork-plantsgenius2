@@ -13,6 +13,12 @@ const getBaseUrl = () => {
     return url.endsWith('/') ? url.slice(0, -1) : url;
   }
 
+  if (process.env.EXPO_PUBLIC_TOOLKIT_URL) {
+    const url = process.env.EXPO_PUBLIC_TOOLKIT_URL;
+    console.log('[tRPC] Using EXPO_PUBLIC_TOOLKIT_URL:', url);
+    return url.endsWith('/') ? url.slice(0, -1) : url;
+  }
+
   if (Platform.OS === 'web') {
     const webUrl = typeof window !== 'undefined' ? window.location.origin : '';
     console.log('[tRPC] Using web origin (fallback):', webUrl);
