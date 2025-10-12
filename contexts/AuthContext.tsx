@@ -181,7 +181,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       let errorMessage = 'Failed to sign up. Please try again.';
       
       if (error.message) {
-        if (error.message.includes('Backend is not available') || error.message.includes('Backend service is not available') || error.message.includes('Backend service not found') || error.message.includes('404') || error.message.includes('Not Found')) {
+        if (error.message.includes('Backend returned HTML') || error.message.includes('not valid JSON') || error.message.includes('Unexpected token')) {
+          errorMessage = 'Backend service is not properly configured. Please use Guest Mode to continue exploring the app.';
+        } else if (error.message.includes('Backend is not available') || error.message.includes('Backend service is not available') || error.message.includes('Backend service not found') || error.message.includes('404') || error.message.includes('Not Found')) {
           errorMessage = 'Backend service is not available. Please use Guest Mode to continue.';
         } else if (error.message.includes('Backend URL not configured')) {
           errorMessage = 'Backend service is not configured. Please use Guest Mode.';

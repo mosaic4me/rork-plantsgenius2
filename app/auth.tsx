@@ -93,6 +93,8 @@ export default function AuthScreen() {
           errorMessage = 'Please enter a valid email address';
         } else if (error.message.includes('already exists')) {
           errorMessage = 'This email is already registered. Please sign in instead.';
+        } else if (error.message.includes('Backend returned HTML') || error.message.includes('not valid JSON') || error.message.includes('Unexpected token') || error.message.includes('not properly configured')) {
+          errorMessage = 'Backend service is not properly configured. Please use Guest Mode to continue exploring the app.';
         } else if (error.message.includes('Backend is not available') || error.message.includes('Backend service is not available') || error.message.includes('Backend service not found') || error.message.includes('Backend service is temporarily unavailable') || error.message.includes('404') || error.message.includes('Not Found')) {
           errorMessage = 'Backend service is not available. Please use Guest Mode to continue exploring the app.';
         } else if (error.message.includes('Failed to fetch') || error.message.includes('Backend URL not configured') || error.message.includes('Backend service is not configured') || error.message.includes('Backend service is not available')) {

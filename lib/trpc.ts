@@ -44,10 +44,23 @@ export const trpcClient = trpc.createClient({
         }
 
         try {
+          console.log('[tRPC] Fetching:', url);
           const response = await fetch(url, options);
+          console.log('[tRPC] Response status:', response.status, response.statusText);
           
-          if (!response.ok && response.status === 404) {
-            throw new Error('Backend service not available. Please ensure the backend server is running.');
+          if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            console.log('[tRPC] Response content-type:', contentType);
+            
+            if (contentType?.includes('text/html')) {
+              const htmlText = await response.text();
+              console.error('[tRPC] Received HTML instead of JSON:', htmlText.substring(0, 200));
+              throw new Error('Backend returned HTML instead of JSON. The tRPC endpoint may not be properly configured.');
+            }
+            
+            if (response.status === 404) {
+              throw new Error('Backend service not available. Please ensure the backend server is running.');
+            }
           }
 
           return response;
