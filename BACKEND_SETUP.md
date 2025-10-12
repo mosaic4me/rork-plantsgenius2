@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Your PlantGenius app has a backend with tRPC API and MongoDB integration, but it's **not currently deployed or running**. The app will work in **Guest Mode** without the backend.
+Your PlantGenius app has a backend with tRPC API and MongoDB integration. The backend is now **properly configured** and should be automatically served by Rork at `/api/*` endpoints. The app will work in **Guest Mode** if the backend is unavailable.
 
 ## What Works Without Backend
 
@@ -26,20 +26,43 @@ Your backend is built with:
 - **MongoDB** - Database for users, subscriptions, and scans
 - **bcryptjs** - Password hashing
 
-## How to Deploy the Backend
+## How to Verify the Backend
 
-### Option 1: Deploy to Rork (Recommended)
+### Step 1: Check if Backend is Running
 
-The backend code is already integrated into your Expo app. Rork's infrastructure should automatically serve the backend at `/api/trpc` endpoints.
+The backend is automatically served by Rork through the `api/[[...route]].ts` file.
 
-**Check if backend is running:**
-1. Open your app in a browser
-2. Navigate to: `https://your-app-url.rorktest.dev/api`
-3. You should see: `{"status":"ok","message":"API endpoint is running"}`
+**Test the backend:**
+1. Open your app URL in a browser: `https://dev-mnpy11q8bq72djea4297w.rorktest.dev`
+2. Navigate to: `https://dev-mnpy11q8bq72djea4297w.rorktest.dev/api`
+3. You should see:
+   ```json
+   {
+     "status": "ok",
+     "message": "PlantGenius Backend API is running",
+     "version": "1.0.0",
+     "endpoints": {
+       "health": "/api/trpc/health.check",
+       "auth": "/api/trpc/auth.*",
+       "scans": "/api/trpc/scans.*"
+     },
+     "timestamp": "..."
+   }
+   ```
 
-If you see this, the backend is working! The authentication errors are likely due to MongoDB connection issues.
+4. Test the health endpoint: `https://dev-mnpy11q8bq72djea4297w.rorktest.dev/api/health`
+5. You should see:
+   ```json
+   {
+     "status": "ok",
+     "message": "Backend is healthy",
+     "timestamp": "..."
+   }
+   ```
 
-### Option 2: Verify MongoDB Connection
+If you see these responses, the backend is working! If authentication still fails, it's likely a MongoDB connection issue.
+
+### Step 2: Verify MongoDB Connection
 
 Your MongoDB connection string is hardcoded in `lib/mongodb.ts`:
 ```

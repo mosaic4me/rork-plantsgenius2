@@ -17,7 +17,8 @@ app.get("/", (c) => {
   console.log('[Backend] Root endpoint hit');
   return c.json({ 
     status: "ok", 
-    message: "Backend API is running", 
+    message: "PlantGenius Backend API is running", 
+    version: "1.0.0",
     endpoints: {
       health: "/api/trpc/health.check",
       auth: "/api/trpc/auth.*",
@@ -27,13 +28,17 @@ app.get("/", (c) => {
   });
 });
 
-app.get("/api", (c) => {
-  console.log('[Backend] /api endpoint hit');
-  return c.json({ status: "ok", message: "API endpoint is running", timestamp: new Date().toISOString() });
+app.get("/health", (c) => {
+  console.log('[Backend] Health check endpoint hit');
+  return c.json({ 
+    status: "ok", 
+    message: "Backend is healthy",
+    timestamp: new Date().toISOString() 
+  });
 });
 
 app.use(
-  "/api/trpc/*",
+  "/trpc/*",
   trpcServer({
     router: appRouter,
     createContext,
