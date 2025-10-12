@@ -144,16 +144,15 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const trimmedEmail = email.trim().toLowerCase();
       const trimmedFullName = fullName.trim();
       
-      console.log('[SignUp] Attempting to sign up user:', trimmedEmail);
-      console.log('[SignUp] Backend URL check:', process.env.EXPO_PUBLIC_RORK_API_BASE_URL || process.env.EXPO_PUBLIC_TOOLKIT_URL || 'Not set');
+      console.log('[SignUp] Attempting sign up for:', trimmedEmail);
       
-      console.log('[SignUp] Calling tRPC mutation...');
       const result = await trpcClient.auth.signUp.mutate({ 
         email: trimmedEmail, 
         password, 
         fullName: trimmedFullName 
       });
-      console.log('[SignUp] Sign up successful:', result);
+      
+      console.log('[SignUp] Success - user created:', result.id);
       
       const userData: User = {
         id: result.id,
@@ -169,32 +168,26 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       return { data: userData, error: null };
     } catch (error: any) {
-      console.error('[SignUp] Error signing up:', error);
-      console.error('[SignUp] Error details:', {
-        message: error.message,
-        name: error.name,
-        cause: error.cause,
-        data: error.data,
-        shape: error.shape,
-      });
+      console.error('[SignUp] Failed:', error.message || 'Unknown error');
       
-      let errorMessage = 'Failed to sign up. Please try again.';
+      let errorMessage = 'Unable to create account. Please try Guest Mode.';
       
       if (error.message) {
-        if (error.message.includes('Backend returned HTML') || error.message.includes('not valid JSON') || error.message.includes('Unexpected token')) {
-          errorMessage = 'Backend service is not properly configured. Please use Guest Mode to continue exploring the app.';
-        } else if (error.message.includes('Backend is not available') || error.message.includes('Backend service is not available') || error.message.includes('Backend service not found') || error.message.includes('404') || error.message.includes('Not Found')) {
-          errorMessage = 'Backend service is not available. Please use Guest Mode to continue.';
-        } else if (error.message.includes('Backend URL not configured')) {
-          errorMessage = 'Backend service is not configured. Please use Guest Mode.';
-        } else if (error.message.includes('Failed to fetch') || error.message.includes('fetch failed') || error.message.includes('Network request failed')) {
-          errorMessage = 'Unable to connect to server. Please use Guest Mode or check your internet connection.';
-        } else if (error.message.includes('Failed to connect to database')) {
-          errorMessage = 'Database connection error. Please try Guest Mode.';
+        if (error.message.includes('Backend service is not configured') || 
+            error.message.includes('Backend service is not available') ||
+            error.message.includes('Backend service returned an error') ||
+            error.message.includes('Cannot connect to backend')) {
+          errorMessage = 'Authentication service is currently unavailable. Please use Guest Mode to explore the app.';
         } else if (error.message.includes('already exists')) {
-          errorMessage = error.message;
+          errorMessage = 'This email is already registered. Please sign in or use a different email.';
         } else if (error.message.includes('Invalid email')) {
           errorMessage = 'Please enter a valid email address.';
+        } else if (error.message.includes('Password must be')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('MongoDB') || error.message.includes('database')) {
+          errorMessage = 'Database service is unavailable. Please use Guest Mode.';
+        } else if (error.message.includes('timeout') || error.message.includes('not responding')) {
+          errorMessage = 'Connection timeout. Please check your internet or use Guest Mode.';
         } else {
           errorMessage = error.message;
         }
@@ -208,12 +201,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     try {
       const trimmedEmail = email.trim().toLowerCase();
       
-      console.log('Attempting to sign in user:', trimmedEmail);
+      console.log('[SignIn] Attempting sign in for:', trimmedEmail);
+      
       const result = await trpcClient.auth.signIn.mutate({ 
         email: trimmedEmail, 
         password 
       });
-      console.log('Sign in successful:', result);
+      
+      console.log('[SignIn] Success - user authenticated:', result.id);
       
       const userData: User = {
         id: result.id,
@@ -229,18 +224,27 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       return { data: userData, error: null };
     } catch (error: any) {
-      console.error('Error signing in:', error);
-      console.error('Error details:', {
-        message: error.message,
-        name: error.name,
-        cause: error.cause,
-      });
+      console.error('[SignIn] Failed:', error.message || 'Unknown error');
       
-      let errorMessage = error.message || 'Failed to sign in';
-      if (error.message?.includes('Failed to fetch')) {
-        errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
-      } else if (error.message?.includes('Invalid credentials')) {
-        errorMessage = 'Invalid email or password. Please try again.';
+      let errorMessage = 'Unable to sign in. Please try Guest Mode.';
+      
+      if (error.message) {
+        if (error.message.includes('Backend service is not configured') || 
+            error.message.includes('Backend service is not available') ||
+            error.message.includes('Backend service returned an error') ||
+            error.message.includes('Cannot connect to backend')) {
+          errorMessage = 'Authentication service is currently unavailable. Please use Guest Mode.';
+        } else if (error.message.includes('Invalid credentials') || error.message.includes('Invalid email or password')) {
+          errorMessage = 'Invalid email or password. Please try again.';
+        } else if (error.message.includes('User not found')) {
+          errorMessage = 'No account found with this email. Please sign up first.';
+        } else if (error.message.includes('MongoDB') || error.message.includes('database')) {
+          errorMessage = 'Database service is unavailable. Please use Guest Mode.';
+        } else if (error.message.includes('timeout') || error.message.includes('not responding')) {
+          errorMessage = 'Connection timeout. Please check your internet or use Guest Mode.';
+        } else {
+          errorMessage = error.message;
+        }
       }
       
       return { data: null, error: { ...error, message: errorMessage } };

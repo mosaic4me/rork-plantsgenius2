@@ -14,32 +14,38 @@ export async function connectToDatabase() {
       console.log('[MongoDB] Cached connection is alive');
       return { client: cachedClient, db: cachedDb };
     } catch (error) {
-      console.log('[MongoDB] Cached connection is stale, reconnecting...', error);
+      console.log('[MongoDB] Cached connection is stale, reconnecting...');
       cachedClient = null;
       cachedDb = null;
     }
   }
 
   console.log('[MongoDB] Establishing new connection...');
-  console.log('[MongoDB] URI:', MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://***:***@'));
+  console.log('[MongoDB] URI:', MONGODB_URI ? MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://***:***@') : 'Not configured');
   console.log('[MongoDB] Database:', MONGODB_DB);
   
-  if (!MONGODB_URI) {
-    throw new Error('MongoDB URI is not defined');
+  if (!MONGODB_URI || MONGODB_URI === '') {
+    const error = new Error('MongoDB URI is not configured. Please set MONGODB_URI or EXPO_PUBLIC_MONGODB_URI environment variable.');
+    console.error('[MongoDB]', error.message);
+    throw error;
   }
 
   if (!MongoClient) {
-    throw new Error('MongoClient is not available. Make sure mongodb package is properly installed.');
+    const error = new Error('MongoClient is not available. The mongodb package may not be properly installed.');
+    console.error('[MongoDB]', error.message);
+    throw error;
   }
   
   try {
     console.log('[MongoDB] Creating MongoClient instance...');
     const client = new MongoClient(MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS: 10000,
-      socketTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+      socketTimeoutMS: 15000,
       maxPoolSize: 10,
       minPoolSize: 1,
+      retryWrites: true,
+      retryReads: true,
     });
     
     console.log('[MongoDB] Connecting to MongoDB...');
@@ -52,23 +58,39 @@ export async function connectToDatabase() {
       throw new Error('Failed to get database instance');
     }
     
-    console.log('[MongoDB] Pinging MongoDB...');
+    console.log('[MongoDB] Testing connection with ping...');
     await client.db().admin().ping();
-    console.log('[MongoDB] Ping successful');
+    console.log('[MongoDB] Connection test successful');
 
     cachedClient = client;
     cachedDb = db;
 
-    console.log('[MongoDB] Connected successfully to database:', MONGODB_DB);
+    console.log('[MongoDB] Successfully connected to database:', MONGODB_DB);
     return { client, db };
   } catch (error) {
-    console.error('[MongoDB] Connection error:', {
+    console.error('[MongoDB] Connection failed:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       name: error instanceof Error ? error.name : 'Unknown',
-      stack: error instanceof Error ? error.stack : 'No stack trace',
-      type: typeof error,
+      code: (error as any)?.code,
+      codeName: (error as any)?.codeName,
     });
-    throw new Error(`Failed to connect to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
+    let errorMessage = 'Failed to connect to database';
+    if (error instanceof Error) {
+      if (error.message.includes('ENOTFOUND') || error.message.includes('getaddrinfo')) {
+        errorMessage = 'Cannot resolve MongoDB host. Please check your connection string and network.';
+      } else if (error.message.includes('ETIMEDOUT') || error.message.includes('timed out')) {
+        errorMessage = 'Connection to MongoDB timed out. Please check your network and firewall settings.';
+      } else if (error.message.includes('Authentication failed') || error.message.includes('auth failed')) {
+        errorMessage = 'MongoDB authentication failed. Please check your credentials.';
+      } else if (error.message.includes('ECONNREFUSED')) {
+        errorMessage = 'MongoDB connection refused. Please ensure the database server is running.';
+      } else {
+        errorMessage = `Failed to connect to database: ${error.message}`;
+      }
+    }
+    
+    throw new Error(errorMessage);
   }
 }
 
