@@ -38,6 +38,22 @@ app.get("/health", (c) => {
 });
 
 app.use(
+  "/api/trpc/*",
+  trpcServer({
+    router: appRouter,
+    createContext,
+    onError: ({ error, path }) => {
+      console.error('[tRPC] Error on path:', path);
+      console.error('[tRPC] Error details:', {
+        message: error.message,
+        code: error.code,
+        cause: error.cause,
+      });
+    },
+  })
+);
+
+app.use(
   "/trpc/*",
   trpcServer({
     router: appRouter,
