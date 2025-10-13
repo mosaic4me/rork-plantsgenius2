@@ -136,10 +136,18 @@ export const [AppProvider, useApp] = createContextHook(() => {
       const { status } = await Notifications.getPermissionsAsync();
       if (status !== 'granted') {
         const { status: newStatus } = await Notifications.requestPermissionsAsync();
-        if (newStatus !== 'granted') return;
+        if (newStatus !== 'granted') {
+          console.log('[Notifications] Permission not granted');
+          return;
+        }
       }
 
       const secondsUntilWatering = Math.floor((nextWateringDue - Date.now()) / 1000);
+      
+      if (secondsUntilWatering <= 0) {
+        console.log('[Notifications] Invalid watering time');
+        return;
+      }
       
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -153,8 +161,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
           repeats: false,
         } as Notifications.TimeIntervalTriggerInput,
       });
+      
+      console.log(`[Notifications] Scheduled watering reminder for ${plant.commonName} in ${Math.floor(secondsUntilWatering / 86400)} days`);
     } catch (error) {
-      console.error('Error scheduling notification:', error);
+      console.log('[Notifications] Not available in Expo Go - notifications will work in production build');
     }
   }, []);
 
