@@ -8,6 +8,9 @@ import Colors from '@/constants/colors';
 import { identifyPlant } from '@/utils/plantIdApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
+import { trpc } from '@/lib/trpc';
+import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
 
 export default function AnalyzingScreen() {
   const insets = useSafeAreaInsets();
@@ -16,6 +19,7 @@ export default function AnalyzingScreen() {
   const [error, setError] = useState<string | null>(null);
   const { incrementDailyScan } = useAuth();
   const { addToHistory } = useApp();
+  const identifyMutation = trpc.plant.identify.useMutation();
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +34,108 @@ export default function AnalyzingScreen() {
           setProgress((prev) => Math.min(prev + 5, 90));
         }, 200);
 
-        const plantData = await identifyPlant(params.imageUri);
+        let plantData;
+        
+        try {
+          console.log('[Analyzing] Attempting backend identification');
+          
+          let imageBase64: string;
+          let mimeType: string;
+          
+          if (Platform.OS === 'web') {
+            const response = await fetch(params.imageUri);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            const base64Promise = new Promise<string>((resolve) => {
+              reader.onloadend = () => resolve(reader.result as string);
+            });
+            reader.readAsDataURL(blob);
+            const dataUrl = await base64Promise;
+            imageBase64 = dataUrl.split(',')[1];
+            mimeType = blob.type;
+          } else {
+            imageBase64 = await FileSystem.readAsStringAsync(params.imageUri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            mimeType = params.imageUri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+          }
+          
+          const backendResult = await identifyMutation.mutateAsync({
+            imageBase64,
+            mimeType,
+          });
+          
+          console.log('[Analyzing] Backend identification successful');
+          
+          const topResult = backendResult.results[0];
+          const species = topResult.species;
+          
+          const commonName = species.commonNames && species.commonNames.length > 0 
+            ? species.commonNames[0] 
+            : species.scientificNameWithoutAuthor;
+          
+          const familyName = species.family?.scientificNameWithoutAuthor || species.family?.scientificName;
+          const genusName = species.genus?.scientificNameWithoutAuthor || species.genus?.scientificName;
+
+          const allCommonNames = species.commonNames || [];
+          const commonNamesText = allCommonNames.length > 1 
+            ? `Also known as: ${allCommonNames.slice(1).join(', ')}`
+            : '';
+
+          const description = `${commonName} (${species.scientificName}) is a plant species in the ${familyName || 'plant'} family. ${commonNamesText}`;
+
+          const referenceImages = topResult.images?.slice(0, 6).map((img: any) => ({
+            url: img.url.m || img.url.s,
+            organ: img.organ,
+            author: img.author,
+            license: img.license,
+          })) || [];
+
+          plantData = {
+            id: `plant_${Date.now()}`,
+            timestamp: Date.now(),
+            imageUri: params.imageUri,
+            commonName,
+            scientificName: species.scientificName,
+            confidence: Math.round(topResult.score * 100),
+            family: familyName,
+            genus: genusName,
+            species: species.scientificNameWithoutAuthor,
+            description,
+            author: species.scientificNameAuthorship,
+            careLevel: 'Beginner' as const,
+            sunExposure: 'Bright indirect light to full sun',
+            wateringSchedule: 'Water when top inch of soil is dry',
+            soilType: 'Well-draining potting mix',
+            toxicity: {
+              dogs: false,
+              cats: false,
+              horses: false,
+            },
+            edible: false,
+            medicinal: false,
+            nativeHabitat: 'Various regions worldwide',
+            bloomingSeason: ['Spring', 'Summer'],
+            pollinators: ['Bees', 'Butterflies'],
+            taxonomy: {
+              kingdom: 'Plantae',
+              phylum: 'Tracheophyta',
+              family: familyName,
+              genus: genusName,
+            },
+            gbifId: topResult.gbif?.id,
+            referenceImages,
+            similarSpecies: backendResult.results.slice(1, 4).map((result: any) => ({
+              name: result.species.commonNames?.[0] || result.species.scientificNameWithoutAuthor,
+              imageUrl: result.images?.[0]?.url.s || result.images?.[0]?.url.m || '',
+              difference: `${Math.round(result.score * 100)}% match`,
+            })),
+            saved: false,
+          };
+        } catch (backendError: any) {
+          console.log('[Analyzing] Backend failed, falling back to direct API:', backendError.message);
+          plantData = await identifyPlant(params.imageUri);
+        }
         
         clearInterval(progressInterval);
         setProgress(100);

@@ -18,19 +18,27 @@ export const identifyPlantProcedure = publicProcedure
       const base64Data = input.imageBase64.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
       
-      const blob = new Blob([buffer], { type: input.mimeType });
-      
       const formData = new FormData();
+      const blob = new Blob([buffer], { type: input.mimeType });
       formData.append('images', blob, 'plant.jpg');
       formData.append('organs', 'auto');
 
       const url = `${PLANTNET_API_URL}?api-key=${PLANTNET_API_KEY}`;
       console.log('[Backend] Sending request to Pl@ntNet API');
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
       const response = await fetch(url, {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        },
       });
+      
+      clearTimeout(timeoutId);
 
       console.log('[Backend] API Response status:', response.status);
       
@@ -58,6 +66,15 @@ export const identifyPlantProcedure = publicProcedure
       return data;
     } catch (error: any) {
       console.error('[Backend] Error identifying plant:', error);
+      
+      if (error.name === 'AbortError') {
+        throw new Error('Plant identification timed out. Please try again.');
+      }
+      
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('Network request failed')) {
+        throw new Error('Unable to connect to plant identification service. Please check your internet connection.');
+      }
+      
       throw new Error(error.message || 'Failed to identify plant');
     }
   });

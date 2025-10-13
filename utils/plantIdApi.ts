@@ -149,10 +149,19 @@ export async function identifyPlant(imageUri: string): Promise<PlantIdentificati
     const url = `${PLANTNET_API_URL}?api-key=${PLANTNET_API_KEY}`;
     console.log('Sending request to Pl@ntNet API');
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    
     const response = await fetch(url, {
       method: 'POST',
       body: formData,
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+      },
     });
+    
+    clearTimeout(timeoutId);
     
     console.log('API Response status:', response.status);
     
@@ -256,9 +265,19 @@ export async function identifyPlant(imageUri: string): Promise<PlantIdentificati
     return plantData;
   } catch (error: any) {
     console.error('Error identifying plant:', error);
-    if (error.message?.includes('Network request failed') || error.message?.includes('Failed to fetch')) {
-      throw new Error('Network error. Please check your internet connection.');
+    
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again with a better internet connection.');
     }
+    
+    if (error.message?.includes('Network request failed') || error.message?.includes('Failed to fetch')) {
+      throw new Error('Unable to connect to plant identification service. Please check your internet connection and try again.');
+    }
+    
+    if (error.message?.includes('CORS')) {
+      throw new Error('Service temporarily unavailable. Please try again later.');
+    }
+    
     throw error;
   }
 }
