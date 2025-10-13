@@ -115,7 +115,17 @@ export default function GardenScreen() {
             <Text style={styles.healthText}>
               Is your plant sick? Upload a photo to diagnose issues
             </Text>
-            <TouchableOpacity style={styles.diagnoseButton}>
+            <TouchableOpacity style={styles.diagnoseButton} onPress={() => {
+              if (Platform.OS !== 'web') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              Toast.show({
+                type: 'info',
+                text1: 'Coming Soon',
+                text2: 'Plant diagnosis feature will be available soon!',
+                position: 'top',
+              });
+            }}>
               <AlertCircle size={20} color={Colors.primary} />
               <Text style={styles.diagnoseButtonText}>Diagnose Plant</Text>
             </TouchableOpacity>

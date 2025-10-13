@@ -49,12 +49,19 @@ export interface PlantIdentification {
   }[];
 }
 
+export interface WateringRecord {
+  timestamp: number;
+  plantId: string;
+  plantName: string;
+}
+
 export interface GardenPlant extends PlantIdentification {
   addedToGarden: number;
   lastWatered?: number;
   nextWateringDue?: number;
   healthStatus: 'healthy' | 'warning' | 'critical';
   notes?: string;
+  wateringHistory?: WateringRecord[];
 }
 
 export interface PlantIdApiResponse {

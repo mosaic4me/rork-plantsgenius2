@@ -1,7 +1,9 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { PlantIdentification, GardenPlant } from '@/types/plant';
+import type { PlantIdentification, GardenPlant, WateringRecord } from '@/types/plant';
 
 const HISTORY_KEY = '@plantgenius_history';
 const GARDEN_KEY = '@plantgenius_garden';
@@ -127,26 +129,69 @@ export const [AppProvider, useApp] = createContextHook(() => {
     }
   }, []);
 
+  const scheduleWateringNotification = useCallback(async (plant: GardenPlant, nextWateringDue: number) => {
+    if (Platform.OS === 'web') return;
+
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        if (newStatus !== 'granted') return;
+      }
+
+      const secondsUntilWatering = Math.floor((nextWateringDue - Date.now()) / 1000);
+      
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '💧 Time to Water Your Plant!',
+          body: `${plant.commonName} needs watering. Don't forget to care for your plant!`,
+          data: { plantId: plant.id },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: secondsUntilWatering,
+          repeats: false,
+        } as Notifications.TimeIntervalTriggerInput,
+      });
+    } catch (error) {
+      console.error('Error scheduling notification:', error);
+    }
+  }, []);
+
   const updatePlantWatering = useCallback(async (id: string) => {
     try {
       const now = Date.now();
+      const nextWateringDue = now + 7 * 24 * 60 * 60 * 1000;
+      
       setGarden((prevGarden) => {
-        const newGarden = prevGarden.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                lastWatered: now,
-                nextWateringDue: now + 7 * 24 * 60 * 60 * 1000,
-              }
-            : item
-        );
+        const newGarden = prevGarden.map((item) => {
+          if (item.id === id) {
+            const wateringRecord: WateringRecord = {
+              timestamp: now,
+              plantId: item.id,
+              plantName: item.commonName,
+            };
+            
+            const updatedPlant = {
+              ...item,
+              lastWatered: now,
+              nextWateringDue,
+              wateringHistory: [...(item.wateringHistory || []), wateringRecord],
+            };
+            
+            scheduleWateringNotification(updatedPlant, nextWateringDue);
+            
+            return updatedPlant;
+          }
+          return item;
+        });
         AsyncStorage.setItem(GARDEN_KEY, JSON.stringify(newGarden));
         return newGarden;
       });
     } catch (error) {
       console.error('Error updating watering:', error);
     }
-  }, []);
+  }, [scheduleWateringNotification]);
 
   return useMemo(() => ({
     history,

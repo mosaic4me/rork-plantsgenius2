@@ -117,17 +117,21 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.name}>{profile?.full_name || 'Plant Enthusiast'}</Text>
           <Text style={styles.email}>{profile?.email || 'user@plantgenius.com'}</Text>
-          {subscription && (
-            <View style={styles.subscriptionBadge}>
-              <Crown size={16} color={Colors.warning} />
-              <Text style={styles.subscriptionText}>
-                {subscription.plan_type === 'basic' ? 'Basic' : 'Premium'} Member
-              </Text>
-            </View>
-          )}
+          <View style={styles.subscriptionBadge}>
+            <Crown size={16} color={subscription ? Colors.warning : Colors.gray.medium} />
+            <Text style={styles.subscriptionText}>
+              {subscription ? 
+                (subscription.plan_type === 'basic' ? 'Basic Plan' : 'Premium Plan') : 
+                'Free Plan'
+              }
+            </Text>
+          </View>
           {!subscription && (
             <Text style={styles.scansRemaining}>
-              {dailyScansRemaining} free scans remaining today
+              {dailyScansRemaining > 0 ? 
+                `${dailyScansRemaining} free scans remaining today` : 
+                'You have exhausted your free scans'
+              }
             </Text>
           )}
         </View>
@@ -149,25 +153,31 @@ export default function ProfileScreen() {
           <View style={styles.premiumHeader}>
             <Crown size={32} color={Colors.warning} />
             <View style={styles.premiumTextContainer}>
-              <Text style={styles.premiumTitle}>Go Premium</Text>
-              <Text style={styles.premiumSubtitle}>Unlock all features</Text>
+              <Text style={styles.premiumTitle}>Upgrade Your Plan</Text>
+              <Text style={styles.premiumSubtitle}>Choose the plan that fits your needs</Text>
             </View>
           </View>
           
-          <View style={styles.premiumFeatures}>
-            <FeatureItem text="Unlimited plant scans" />
-            <FeatureItem text="AR plant visualization" />
-            <FeatureItem text="Health diagnosis" />
-            <FeatureItem text="Ad-free experience" />
+          <View style={styles.planComparisonCard}>
+            <Text style={styles.planComparisonTitle}>Current Plan: {subscription ? (subscription.plan_type === 'basic' ? 'Basic' : 'Premium') : 'Free'}</Text>
           </View>
 
           <View style={styles.plansContainer}>
-            <Text style={styles.plansTitle}>Choose Your Plan</Text>
+            <Text style={styles.plansTitle}>Available Plans</Text>
             
             <View style={styles.planCard}>
               <Text style={styles.planTitle}>Basic Plan</Text>
               <Text style={styles.planPrice}>₦2.99/month</Text>
               <Text style={styles.planSavings}>₦32.28/year (Save 10%)</Text>
+              
+              <View style={styles.planFeatures}>
+                <FeatureItem text="10 scans per day" />
+                <FeatureItem text="150 scans per month" />
+                <FeatureItem text="No ads" />
+                <FeatureItem text="Add up to 5 plants in garden" />
+                <FeatureItem text="Basic support" />
+              </View>
+              
               <TouchableOpacity
                 style={styles.planButton}
                 onPress={() => handleSubscribe('basic', 'monthly')}
@@ -189,6 +199,16 @@ export default function ProfileScreen() {
               <Text style={styles.planTitle}>Premium Plan</Text>
               <Text style={styles.planPrice}>₦4.99/month</Text>
               <Text style={styles.planSavings}>₦52.76/year (Save 12%)</Text>
+              
+              <View style={styles.planFeatures}>
+                <FeatureItem text="50 scans per day" />
+                <FeatureItem text="600 scans per month" />
+                <FeatureItem text="No ads" />
+                <FeatureItem text="Add up to 50 plants in garden" />
+                <FeatureItem text="Priority support" />
+                <FeatureItem text="Advanced plant care tips" />
+              </View>
+              
               <TouchableOpacity
                 style={styles.planButton}
                 onPress={() => handleSubscribe('premium', 'monthly')}
@@ -241,9 +261,6 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.attribution}>
-          <Text style={styles.attributionText}>
-            Plant identification powered by Plant.id
-          </Text>
           <Text style={styles.copyrightText}>
             © 2025 Programmers&apos; Court LTD. All rights reserved.
           </Text>
@@ -319,7 +336,9 @@ function MenuItem({
 }) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-      <View style={styles.menuIcon}>{icon}</View>
+      <View style={styles.menuIcon}>
+        <Text>{icon}</Text>
+      </View>
       <View style={styles.menuContent}>
         <Text style={styles.menuTitle}>{title}</Text>
         <Text style={styles.menuSubtitle}>{subtitle}</Text>
@@ -466,6 +485,22 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 16,
     color: Colors.black,
+  },
+  planComparisonCard: {
+    backgroundColor: Colors.gray.light,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  planComparisonTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.black,
+    textAlign: 'center',
+  },
+  planFeatures: {
+    gap: 8,
+    marginBottom: 16,
   },
   plansContainer: {
     gap: 16,
