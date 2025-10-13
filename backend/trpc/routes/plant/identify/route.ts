@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { publicProcedure } from "../../create-context";
+import { publicProcedure } from "@/backend/trpc/create-context";
 
 const PLANTNET_API_KEY = '2b100he5fPRI5nc3c0vQShFT1u';
 const PLANTNET_API_URL = 'https://my-api.plantnet.org/v2/identify/all';
