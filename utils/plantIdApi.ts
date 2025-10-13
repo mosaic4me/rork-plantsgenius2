@@ -131,17 +131,16 @@ export async function identifyPlant(imageUri: string): Promise<PlantIdentificati
       const blob = await response.blob();
       formData.append('images', blob, 'plant.jpg');
     } else {
-      const base64Data = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      
       const mimeType = imageUri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
-      const blob = await (async () => {
-        const response = await fetch(`data:${mimeType};base64,${base64Data}`);
-        return await response.blob();
-      })();
+      const fileName = imageUri.toLowerCase().endsWith('.png') ? 'plant.png' : 'plant.jpg';
       
-      formData.append('images', blob, 'plant.jpg');
+      const imageFile = {
+        uri: imageUri,
+        name: fileName,
+        type: mimeType,
+      } as any;
+      
+      formData.append('images', imageFile);
     }
     
     formData.append('organs', 'auto');
