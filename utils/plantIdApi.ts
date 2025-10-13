@@ -1,9 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import type { PlantIdentification } from '@/types/plant';
-
-const PLANTNET_API_KEY = '2b100he5fPRI5nc3c0vQShFT1u';
-const PLANTNET_API_URL = 'https://my-api.plantnet.org/v2/identify/all';
+import { trpcClient } from '@/lib/trpc';
 
 interface PlantNetImage {
   organ: string;
@@ -120,77 +118,40 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
   }
 }
 
-async function prepareImageForUpload(imageUri: string): Promise<{ uri: string; name: string; type: string }> {
-  try {
-    console.log('Preparing image for upload, URI:', imageUri);
-    
-    const fileName = imageUri.split('/').pop() || 'plant.jpg';
-    const fileType = imageUri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
-    
-    return {
-      uri: imageUri,
-      name: fileName,
-      type: fileType,
-    };
-  } catch (error: any) {
-    console.error('Error preparing image:', error);
-    throw new Error('Failed to prepare image for upload');
-  }
-}
-
 export async function identifyPlant(imageUri: string): Promise<PlantIdentification> {
   try {
     console.log('Starting plant identification with Pl@ntNet for:', imageUri);
     
-    const imageFile = await prepareImageForUpload(imageUri);
-    console.log('Image prepared for upload:', imageFile.name);
-
-    const formData = new FormData();
+    let base64Data: string;
+    let mimeType: string;
     
     if (Platform.OS === 'web') {
       const response = await fetch(imageUri);
       const blob = await response.blob();
-      formData.append('images', blob, imageFile.name);
+      mimeType = blob.type;
+      
+      const reader = new FileReader();
+      base64Data = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
     } else {
-      formData.append('images', {
-        uri: imageFile.uri,
-        name: imageFile.name,
-        type: imageFile.type,
-      } as any);
+      mimeType = imageUri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+      base64Data = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
     }
     
-    formData.append('organs', 'auto');
-
-    const url = `${PLANTNET_API_URL}?api-key=${PLANTNET_API_KEY}`;
-    console.log('Sending request to Pl@ntNet API:', url.replace(PLANTNET_API_KEY, 'HIDDEN'));
-    console.log('FormData organs:', 'auto');
-    
-    const apiResponse = await fetch(url, {
-      method: 'POST',
-      body: formData,
+    console.log('Sending request to backend API');
+    const data: PlantNetResponse = await trpcClient.plant.identify.mutate({
+      imageBase64: base64Data,
+      mimeType,
     });
-
-    console.log('API Response status:', apiResponse.status);
     
-    if (!apiResponse.ok) {
-      let errorText = '';
-      try {
-        const errorJson = await apiResponse.json();
-        errorText = JSON.stringify(errorJson);
-        console.error('API Error (JSON):', errorJson);
-      } catch {
-        errorText = await apiResponse.text();
-        console.error('API Error (Text):', errorText);
-      }
-      
-      if (apiResponse.status === 401) {
-        throw new Error('API authentication failed. Please check the API key.');
-      }
-      
-      throw new Error(`API request failed: ${apiResponse.status} - ${errorText}`);
-    }
-
-    const data: PlantNetResponse = await apiResponse.json();
     console.log('API Response received:', JSON.stringify(data, null, 2));
 
     if (!data.results || data.results.length === 0) {

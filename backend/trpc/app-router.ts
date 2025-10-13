@@ -10,6 +10,7 @@ import { getUserSubscriptionProcedure } from "./routes/subscription/get-subscrip
 import { getDailyScansRemainingProcedure } from "./routes/scans/get-daily-scans/route";
 import { incrementDailyScanProcedure } from "./routes/scans/increment-scan/route";
 import { healthCheckProcedure } from "./routes/health/check/route";
+import { identifyPlantProcedure } from "./routes/plant/identify/route";
 
 export const appRouter = createTRPCRouter({
   health: createTRPCRouter({
@@ -34,6 +35,9 @@ export const appRouter = createTRPCRouter({
   scans: createTRPCRouter({
     getDailyScans: getDailyScansRemainingProcedure,
     incrementScan: incrementDailyScanProcedure,
+  }),
+  plant: createTRPCRouter({
+    identify: identifyPlantProcedure,
   }),
 });
 
