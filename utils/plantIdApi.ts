@@ -1,7 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import type { PlantIdentification } from '@/types/plant';
-import { trpcClient } from '@/lib/trpc';
 
 interface PlantNetImage {
   organ: string;
@@ -118,39 +117,68 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
   }
 }
 
+const PLANTNET_API_KEY = '2b100he5fPRI5nc3c0vQShFT1u';
+const PLANTNET_API_URL = 'https://my-api.plantnet.org/v2/identify/all';
+
 export async function identifyPlant(imageUri: string): Promise<PlantIdentification> {
   try {
     console.log('Starting plant identification with Pl@ntNet for:', imageUri);
     
-    let base64Data: string;
-    let mimeType: string;
+    const formData = new FormData();
     
     if (Platform.OS === 'web') {
       const response = await fetch(imageUri);
       const blob = await response.blob();
-      mimeType = blob.type;
-      
-      const reader = new FileReader();
-      base64Data = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      formData.append('images', blob, 'plant.jpg');
     } else {
-      mimeType = imageUri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
-      base64Data = await FileSystem.readAsStringAsync(imageUri, {
+      const base64Data = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
+      
+      const mimeType = imageUri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+      const blob = await (async () => {
+        const response = await fetch(`data:${mimeType};base64,${base64Data}`);
+        return await response.blob();
+      })();
+      
+      formData.append('images', blob, 'plant.jpg');
     }
     
-    console.log('Sending request to backend API');
-    const data: PlantNetResponse = await trpcClient.plant.identify.mutate({
-      imageBase64: base64Data,
-      mimeType,
+    formData.append('organs', 'auto');
+    
+    const url = `${PLANTNET_API_URL}?api-key=${PLANTNET_API_KEY}`;
+    console.log('Sending request to Pl@ntNet API');
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
     });
+    
+    console.log('API Response status:', response.status);
+    
+    if (!response.ok) {
+      let errorText = '';
+      try {
+        const errorJson = await response.json();
+        errorText = JSON.stringify(errorJson);
+        console.error('API Error (JSON):', errorJson);
+      } catch {
+        errorText = await response.text();
+        console.error('API Error (Text):', errorText);
+      }
+      
+      if (response.status === 401) {
+        throw new Error('API authentication failed. Please check the API key.');
+      }
+      
+      if (response.status === 403) {
+        throw new Error('API access denied. The service may have usage limits.');
+      }
+      
+      throw new Error(`API request failed: ${response.status} - ${errorText}`);
+    }
+    
+    const data: PlantNetResponse = await response.json();
     
     console.log('API Response received:', JSON.stringify(data, null, 2));
 
