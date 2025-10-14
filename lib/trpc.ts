@@ -46,14 +46,11 @@ export const trpcClient = trpc.createClient({
       transformer: superjson,
       fetch: async (url, options) => {
         if (!baseUrl) {
-          const error = new Error('Backend service is not configured. Please use Guest Mode to continue.');
-          console.warn('[tRPC] Backend unavailable:', error.message);
-          throw error;
+          console.log('[tRPC] Backend not configured - skipping request');
+          throw new Error('BACKEND_NOT_CONFIGURED');
         }
 
         try {
-          console.log('[tRPC] Request to:', url);
-          
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
           
@@ -68,35 +65,28 @@ export const trpcClient = trpc.createClient({
           
           clearTimeout(timeoutId);
           
-          console.log('[tRPC] Response:', response.status, response.statusText);
-          
           if (!response.ok) {
             const contentType = response.headers.get('content-type');
             
             if (response.status === 404) {
-              console.error('[tRPC] 404 - Backend endpoint not found');
-              throw new Error('Backend service is not available. The server may be starting up or not deployed. Please use Guest Mode.');
+              throw new Error('BACKEND_NOT_FOUND');
             }
             
             if (contentType?.includes('text/html')) {
-              console.error('[tRPC] Received HTML instead of JSON');
-              throw new Error('Backend service returned an error page. Please use Guest Mode.');
+              throw new Error('BACKEND_ERROR');
             }
           }
 
           return response;
         } catch (error: any) {
           if (error.name === 'AbortError') {
-            console.error('[tRPC] Request timeout after 10s');
-            throw new Error('Backend service is not responding. Please check your connection or use Guest Mode.');
+            throw new Error('BACKEND_TIMEOUT');
           }
           
           if (error.message?.includes('Failed to fetch') || error.message?.includes('Network request failed')) {
-            console.error('[tRPC] Network error - cannot reach backend');
-            throw new Error('Cannot connect to backend service. Please check your internet connection or use Guest Mode.');
+            throw new Error('BACKEND_NETWORK_ERROR');
           }
           
-          console.error('[tRPC] Request failed:', error.message);
           throw error;
         }
       },

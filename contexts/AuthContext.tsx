@@ -175,24 +175,20 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       let errorMessage = 'Unable to create account. Please try Guest Mode.';
       
       if (error?.message) {
-        const msg = error.message.toLowerCase();
-        if (msg.includes('backend') || 
-            msg.includes('service') ||
-            msg.includes('unavailable') ||
-            msg.includes('cannot connect') ||
-            msg.includes('not configured') ||
-            msg.includes('not responding') ||
-            msg.includes('timeout') ||
-            msg.includes('failed to fetch') ||
-            msg.includes('network')) {
+        const msg = error.message;
+        if (msg === 'BACKEND_NOT_CONFIGURED' || 
+            msg === 'BACKEND_NOT_FOUND' || 
+            msg === 'BACKEND_ERROR' ||
+            msg === 'BACKEND_TIMEOUT' ||
+            msg === 'BACKEND_NETWORK_ERROR') {
           errorMessage = 'Authentication service is currently unavailable. Please use Guest Mode to explore the app.';
-        } else if (msg.includes('already exists')) {
+        } else if (msg.toLowerCase().includes('already exists')) {
           errorMessage = 'This email is already registered. Please sign in or use a different email.';
-        } else if (msg.includes('invalid email')) {
+        } else if (msg.toLowerCase().includes('invalid email')) {
           errorMessage = 'Please enter a valid email address.';
-        } else if (msg.includes('password must be')) {
+        } else if (msg.toLowerCase().includes('password must be')) {
           errorMessage = error.message;
-        } else if (msg.includes('mongodb') || msg.includes('database')) {
+        } else if (msg.toLowerCase().includes('mongodb') || msg.toLowerCase().includes('database')) {
           errorMessage = 'Database service is unavailable. Please use Guest Mode.';
         } else {
           errorMessage = error.message;
@@ -237,22 +233,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       let errorMessage = 'Unable to sign in. Please try Guest Mode.';
       
       if (error?.message) {
-        const msg = error.message.toLowerCase();
-        if (msg.includes('backend') || 
-            msg.includes('service') ||
-            msg.includes('unavailable') ||
-            msg.includes('cannot connect') ||
-            msg.includes('not configured') ||
-            msg.includes('not responding') ||
-            msg.includes('timeout') ||
-            msg.includes('failed to fetch') ||
-            msg.includes('network')) {
+        const msg = error.message;
+        if (msg === 'BACKEND_NOT_CONFIGURED' || 
+            msg === 'BACKEND_NOT_FOUND' || 
+            msg === 'BACKEND_ERROR' ||
+            msg === 'BACKEND_TIMEOUT' ||
+            msg === 'BACKEND_NETWORK_ERROR') {
           errorMessage = 'Authentication service is currently unavailable. Please use Guest Mode.';
-        } else if (msg.includes('invalid credentials') || msg.includes('invalid email or password')) {
+        } else if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('invalid email or password')) {
           errorMessage = 'Invalid email or password. Please try again.';
-        } else if (msg.includes('user not found')) {
+        } else if (msg.toLowerCase().includes('user not found')) {
           errorMessage = 'No account found with this email. Please sign up first.';
-        } else if (msg.includes('mongodb') || msg.includes('database')) {
+        } else if (msg.toLowerCase().includes('mongodb') || msg.toLowerCase().includes('database')) {
           errorMessage = 'Database service is unavailable. Please use Guest Mode.';
         } else {
           errorMessage = error.message;
