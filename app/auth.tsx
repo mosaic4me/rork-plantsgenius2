@@ -68,7 +68,7 @@ export default function AuthScreen() {
         Toast.show({
           type: 'success',
           text1: 'Account Created!',
-          text2: 'Welcome to PlantGenius',
+          text2: 'Welcome to PlantsGenius',
           position: 'top',
         });
       } else {
@@ -158,7 +158,7 @@ export default function AuthScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.title}>PlantGenius</Text>
+          <Text style={styles.title}>PlantsGenius</Text>
           <Text style={styles.subtitle}>
             {isSignUp ? 'Create your account' : 'Welcome back!'}
           </Text>
