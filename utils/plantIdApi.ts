@@ -149,7 +149,7 @@ export async function identifyPlant(imageUri: string): Promise<PlantIdentificati
     console.log('Sending request to Pl@ntNet API');
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     
     const response = await fetch(url, {
       method: 'POST',
@@ -266,7 +266,7 @@ export async function identifyPlant(imageUri: string): Promise<PlantIdentificati
     console.error('Error identifying plant:', error);
     
     if (error.name === 'AbortError') {
-      throw new Error('Request timed out. Please try again with a better internet connection.');
+      throw new Error('Request timed out after 60 seconds. Please check your internet connection and try again.');
     }
     
     if (error.message?.includes('Network request failed') || error.message?.includes('Failed to fetch')) {

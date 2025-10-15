@@ -27,7 +27,7 @@ export const identifyPlantProcedure = publicProcedure
       console.log('[Backend] Sending request to Pl@ntNet API');
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       
       const response = await fetch(url, {
         method: 'POST',
@@ -68,7 +68,7 @@ export const identifyPlantProcedure = publicProcedure
       console.error('[Backend] Error identifying plant:', error);
       
       if (error.name === 'AbortError') {
-        throw new Error('Plant identification timed out. Please try again.');
+        throw new Error('Plant identification timed out after 60 seconds. Please check your internet connection and try again.');
       }
       
       if (error.message?.includes('Failed to fetch') || error.message?.includes('Network request failed')) {
