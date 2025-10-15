@@ -134,7 +134,13 @@ export default function AnalyzingScreen() {
           };
         } catch (backendError: any) {
           console.log('[Analyzing] Backend failed, falling back to direct API:', backendError.message);
-          plantData = await identifyPlant(params.imageUri);
+          
+          try {
+            plantData = await identifyPlant(params.imageUri);
+          } catch (directApiError: any) {
+            console.error('[Analyzing] Direct API also failed:', directApiError.message);
+            throw directApiError;
+          }
         }
         
         clearInterval(progressInterval);
