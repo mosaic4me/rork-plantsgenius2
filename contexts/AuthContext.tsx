@@ -37,6 +37,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [lastResetDate, setLastResetDate] = useState<string | null>(null);
   const [authProvider, setAuthProvider] = useState<'email' | 'google' | 'apple' | null>(null);
   const [earnedScans, setEarnedScans] = useState(0);
+  const [adClicksToday, setAdClicksToday] = useState(0);
+  const [lastAdClickDate, setLastAdClickDate] = useState<string | null>(null);
 
   const loadProfile = useCallback(async (userId: string) => {
     try {
@@ -339,6 +341,51 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   }, [user, loadDailyScans]);
 
+  const addEarnedScan = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const storedDate = await AsyncStorage.getItem('lastAdClickDate');
+      const storedClicks = await AsyncStorage.getItem('adClicksToday');
+      
+      if (storedDate !== today) {
+        await AsyncStorage.setItem('lastAdClickDate', today);
+        await AsyncStorage.setItem('adClicksToday', '1');
+        setAdClicksToday(1);
+        setLastAdClickDate(today);
+      } else {
+        const clicks = parseInt(storedClicks || '0', 10);
+        if (clicks < 2) {
+          const newClicks = clicks + 1;
+          await AsyncStorage.setItem('adClicksToday', newClicks.toString());
+          setAdClicksToday(newClicks);
+        }
+      }
+      
+      setDailyScansRemaining(prev => prev + 1);
+    } catch (error) {
+      console.error('Error adding earned scan:', error);
+    }
+  }, []);
+
+  const canEarnMoreScans = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const storedDate = await AsyncStorage.getItem('lastAdClickDate');
+      const storedClicks = await AsyncStorage.getItem('adClicksToday');
+      
+      if (storedDate !== today) {
+        return true;
+      }
+      
+      const clicks = parseInt(storedClicks || '0', 10);
+      return clicks < 2;
+    } catch (error) {
+      console.error('Error checking earned scans:', error);
+      return false;
+    }
+  }, []);
+
   const hasActiveSubscription = useCallback(() => {
     return subscription?.status === 'active';
   }, [subscription]);
@@ -486,6 +533,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     dailyScansRemaining,
     isGuest,
     authProvider,
+    adClicksToday,
     signUp,
     signIn,
     signInWithOAuth,
@@ -493,6 +541,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     updateProfile,
     resetPassword,
     incrementDailyScan,
+    addEarnedScan,
+    canEarnMoreScans,
     hasActiveSubscription,
     canScan,
     continueAsGuest,
@@ -505,6 +555,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     dailyScansRemaining,
     isGuest,
     authProvider,
+    adClicksToday,
     signUp,
     signIn,
     signInWithOAuth,
@@ -512,6 +563,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     updateProfile,
     resetPassword,
     incrementDailyScan,
+    addEarnedScan,
+    canEarnMoreScans,
     hasActiveSubscription,
     canScan,
     continueAsGuest,

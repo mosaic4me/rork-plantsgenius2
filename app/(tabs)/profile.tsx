@@ -25,10 +25,11 @@ import Colors from '@/constants/colors';
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { stats } = useApp();
-  const { profile, subscription, signOut, dailyScansRemaining, deleteAccount, isGuest, incrementDailyScan } = useAuth();
+  const { profile, subscription, signOut, dailyScansRemaining, deleteAccount, isGuest, addEarnedScan, canEarnMoreScans, adClicksToday } = useAuth();
   const [showPayment, setShowPayment] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRewardedAd, setShowRewardedAd] = useState(false);
+  const [canEarnScans, setCanEarnScans] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<{ type: 'basic' | 'premium'; cycle: 'monthly' | 'yearly' }>({ type: 'basic', cycle: 'monthly' });
   const [prices, setPrices] = useState({
     basicMonthly: '$2.99',
@@ -215,15 +216,28 @@ export default function ProfileScreen() {
               </Text>
               {dailyScansRemaining === 0 && (
                 <TouchableOpacity
-                  style={styles.earnScanButton}
-                  onPress={() => {
+                  style={[styles.earnScanButton, (!canEarnScans || adClicksToday >= 2) && styles.earnScanButtonDisabled]}
+                  onPress={async () => {
                     if (Platform.OS !== 'web') {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     }
-                    setShowRewardedAd(true);
+                    const canEarn = await canEarnMoreScans();
+                    if (canEarn) {
+                      setShowRewardedAd(true);
+                    } else {
+                      Toast.show({
+                        type: 'info',
+                        text1: 'Daily Limit Reached',
+                        text2: 'You can earn up to 2 free scans per day',
+                        position: 'top',
+                      });
+                    }
                   }}
+                  disabled={!canEarnScans || adClicksToday >= 2}
                 >
-                  <Text style={styles.earnScanButtonText}>Earn a Free Scan</Text>
+                  <Text style={styles.earnScanButtonText}>
+                    {adClicksToday >= 2 ? 'Daily Limit Reached' : 'Earn a Free Scan'}
+                  </Text>
                 </TouchableOpacity>
               )}
             </>
@@ -414,7 +428,10 @@ export default function ProfileScreen() {
         visible={showRewardedAd}
         onClose={() => setShowRewardedAd(false)}
         onReward={async () => {
-          await incrementDailyScan();
+          await addEarnedScan();
+          setShowRewardedAd(false);
+          const canStillEarn = await canEarnMoreScans();
+          setCanEarnScans(canStillEarn);
           Toast.show({
             type: 'success',
             text1: 'Reward Earned!',
@@ -592,6 +609,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700' as const,
     color: Colors.white,
+  },
+  earnScanButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: Colors.gray.medium,
   },
   statsGrid: {
     flexDirection: 'row',

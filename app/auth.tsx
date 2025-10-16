@@ -298,7 +298,7 @@ export default function AuthScreen() {
 
           <View style={styles.oauthContainer}>
             <TouchableOpacity
-              style={[styles.oauthButton, styles.googleButton, (loading || oauthLoading) && styles.buttonDisabled, showAppleSignIn && styles.oauthButtonHalf]}
+              style={[styles.oauthButton, styles.googleButton, (loading || oauthLoading) && styles.buttonDisabled, Platform.OS === 'ios' && showAppleSignIn && styles.oauthButtonHalf]}
               onPress={() => handleOAuthSignIn('google')}
               disabled={loading || oauthLoading}
               activeOpacity={0.8}
@@ -306,15 +306,18 @@ export default function AuthScreen() {
               {oauthLoading ? (
                 <ActivityIndicator color={Colors.black} />
               ) : (
-                <Image
-                  source={{ uri: 'https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png' }}
-                  style={styles.googleIcon}
-                  resizeMode="contain"
-                />
+                <>
+                  <Image
+                    source={{ uri: 'https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png' }}
+                    style={styles.googleIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.oauthButtonText}>Sign Up with Google</Text>
+                </>
               )}
             </TouchableOpacity>
 
-            {showAppleSignIn && (
+            {showAppleSignIn && Platform.OS === 'ios' && (
               <TouchableOpacity
                 style={[styles.oauthButton, styles.appleButton, styles.oauthButtonHalf, (loading || oauthLoading) && styles.buttonDisabled]}
                 onPress={() => handleOAuthSignIn('apple')}
@@ -324,11 +327,14 @@ export default function AuthScreen() {
                 {oauthLoading ? (
                   <ActivityIndicator color={Colors.white} />
                 ) : (
-                  <Image
-                    source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' }}
-                    style={styles.appleIcon}
-                    resizeMode="contain"
-                  />
+                  <>
+                    <Image
+                      source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' }}
+                      style={styles.appleIcon}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.appleButtonText}>Sign In with Apple</Text>
+                  </>
                 )}
               </TouchableOpacity>
             )}
@@ -460,7 +466,7 @@ const styles = StyleSheet.create({
   },
   oauthContainer: {
     flexDirection: 'row',
-    gap: 1,
+    gap: 12,
     width: '100%',
   },
   divider: {

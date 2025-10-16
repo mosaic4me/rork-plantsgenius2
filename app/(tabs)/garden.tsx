@@ -198,7 +198,7 @@ export default function GardenScreen() {
                           <Droplets size={18} color={Colors.white} />
                         </View>
                         <Text style={styles.waterButtonText}>
-                          {plant.lastWatered ? 'Marked as Watered' : 'Mark as Watered'}
+                          {needsWater ? 'Water Now' : (plant.lastWatered ? 'Marked as Watered' : 'Mark as Watered')}
                         </Text>
                       </TouchableOpacity>
                       {plant.wateringHistory && plant.wateringHistory.length > 0 && (

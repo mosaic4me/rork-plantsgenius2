@@ -21,10 +21,10 @@ const getBaseUrl = () => {
   }
 
   console.warn('[tRPC] ⚠️ EXPO_PUBLIC_API_BASE_URL not configured in .env file');
-  console.warn('[tRPC] ⚠️ Expected: EXPO_PUBLIC_API_BASE_URL=https://api.plantsgenius.site/app');
+  console.warn('[tRPC] ⚠️ Expected: EXPO_PUBLIC_API_BASE_URL=https://api.plantsgenius.site');
   console.warn('[tRPC] ⚠️ App will run in offline/guest mode with limited features');
   
-  return 'https://api.plantsgenius.site/app';
+  return 'https://api.plantsgenius.site';
 };
 
 const baseUrl = getBaseUrl();

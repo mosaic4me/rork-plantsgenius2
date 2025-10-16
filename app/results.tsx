@@ -71,7 +71,7 @@ export default function ResultsScreen() {
     }
 
     try {
-      const shareText = `🌿 ${plant.commonName}\n\nScientific Name: ${plant.scientificName}\nFamily: ${plant.family || 'Unknown'}\nConfidence: ${plant.confidence}%\n\n${plant.description || ''}\n\nIdentified with PlantGenius`;
+      const shareText = `🌿 ${plant.commonName}\n\nScientific Name: ${plant.scientificName}\nFamily: ${plant.family || 'Unknown'}\nConfidence: ${plant.confidence}%\n\n${plant.description || ''}\n\nPlants Genius https://plantsgenius.site`;
       
       if (Platform.OS === 'web') {
         if (navigator.share) {
@@ -91,12 +91,21 @@ export default function ResultsScreen() {
       } else {
         const isAvailable = await Sharing.isAvailableAsync();
         if (isAvailable) {
-          const tempFile = `${FileSystem.cacheDirectory}plant_info.txt`;
-          await FileSystem.writeAsStringAsync(tempFile, shareText);
-          await Sharing.shareAsync(tempFile, {
-            mimeType: 'text/plain',
+          await Sharing.shareAsync(plant.imageUri, {
+            mimeType: 'image/jpeg',
             dialogTitle: `Share ${plant.commonName}`,
+            UTI: 'public.jpeg',
           });
+          
+          setTimeout(async () => {
+            const textIsAvailable = await Sharing.isAvailableAsync();
+            if (textIsAvailable) {
+              await Sharing.shareAsync('', {
+                mimeType: 'text/plain',
+                dialogTitle: 'Plant Details',
+              }).catch(() => {});
+            }
+          }, 500);
         }
       }
     } catch (error: any) {
