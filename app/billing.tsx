@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreditCard, Calendar, Clock, TrendingUp, Crown, ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
-import PaystackPayment from '@/components/PaystackPayment';
+import InAppPayment from '@/components/InAppPayment';
 import { getDaysRemaining, getScanLimits } from '@/utils/paymentHelpers';
 import type { PlanType, BillingCycle } from '@/utils/paymentHelpers';
 import Colors from '@/constants/colors';
@@ -121,7 +121,7 @@ export default function BillingScreen() {
                 <CreditCard size={20} color={Colors.primary} />
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Payment Method</Text>
-                  <Text style={styles.infoValue}>Paystack</Text>
+                  <Text style={styles.infoValue}>{Platform.OS === 'ios' ? 'Apple Pay' : 'Google Pay'}</Text>
                 </View>
               </View>
 
@@ -201,7 +201,7 @@ export default function BillingScreen() {
           </View>
         </ScrollView>
 
-        <PaystackPayment
+        <InAppPayment
           visible={showPayment}
           onClose={() => setShowPayment(false)}
           planType={selectedPlan.type}

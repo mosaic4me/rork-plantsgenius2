@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
-import { getUserLocation, isWestAfricanCountry, convertCurrency } from './currencyConverter';
+import { convertCurrency } from './currencyConverter';
 
-export type PaymentMethod = 'google-pay' | 'apple-pay' | 'paystack';
+export type PaymentMethod = 'google-pay' | 'apple-pay';
 export type PlanType = 'basic' | 'premium';
 export type BillingCycle = 'monthly' | 'yearly';
 
@@ -46,21 +46,11 @@ export async function getPaymentDetails(
 }
 
 export async function determinePaymentMethod(): Promise<PaymentMethod> {
-  const location = await getUserLocation();
-  
-  if (location && isWestAfricanCountry(location.country)) {
-    return 'paystack';
-  }
-  
   if (Platform.OS === 'ios') {
     return 'apple-pay';
   }
   
-  if (Platform.OS === 'android') {
-    return 'google-pay';
-  }
-  
-  return 'paystack';
+  return 'google-pay';
 }
 
 export interface SubscriptionPayload {

@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import PaystackPayment from '@/components/PaystackPayment';
+import InAppPayment from '@/components/InAppPayment';
 import RewardedAd from '@/components/RewardedAd';
 import { getDaysRemaining, getScanLimits } from '@/utils/paymentHelpers';
 import { convertCurrency, formatCurrency, getUserLocation, isWestAfricanCountry } from '@/utils/currencyConverter';
@@ -417,7 +417,7 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      <PaystackPayment
+      <InAppPayment
         visible={showPayment}
         onClose={() => setShowPayment(false)}
         planType={selectedPlan.type}
