@@ -23,23 +23,26 @@ const slides = [
   {
     id: 1,
     icon: Leaf,
-    title: 'Discover Plants',
-    description: 'Identify any plant instantly with AI-powered recognition technology',
+    title: 'Discover Your Green World',
+    description: 'Unlock the secrets of nature with AI-powered plant identification. Simply snap a photo and discover everything about your plant in seconds.',
     color: '#2D5016',
+    image: 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&h=1200&fit=crop',
   },
   {
     id: 2,
     icon: Camera,
-    title: 'Scan & Learn',
-    description: 'Take a photo and get detailed information about care, toxicity, and more',
+    title: 'Expert Plant Care',
+    description: 'Get personalized care guides, watering schedules, and health tips tailored to each plant. Never let your green friends down again!',
     color: '#7CB342',
+    image: 'https://images.unsplash.com/photo-1459156212016-c812468e2115?w=800&h=1200&fit=crop',
   },
   {
     id: 3,
     icon: Sparkles,
-    title: 'Build Your Garden',
-    description: 'Track your plants, set reminders, and watch your garden flourish',
+    title: 'Your Digital Garden',
+    description: 'Build your personal plant collection, track growth, and receive smart reminders. Watch your garden thrive with PlantGenius by your side!',
     color: '#8D6E63',
+    image: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=800&h=1200&fit=crop',
   },
 ];
 
@@ -213,11 +216,21 @@ export default function OnboardingScreen() {
               }
             ]}
           >
-            <View style={[styles.iconContainer, { backgroundColor: slide.color }]}>
-              <slide.icon size={80} color={Colors.white} strokeWidth={1.5} />
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ uri: slide.image }}
+                style={styles.slideImage}
+                resizeMode="cover"
+              />
+              <View style={styles.imageOverlay} />
+              <View style={[styles.iconBadge, { backgroundColor: slide.color }]}>
+                <slide.icon size={40} color={Colors.white} strokeWidth={2} />
+              </View>
             </View>
-            <Text style={styles.title}>{slide.title}</Text>
-            <Text style={styles.description}>{slide.description}</Text>
+            <View style={styles.contentContainer}>
+              <Text style={styles.title}>{slide.title}</Text>
+              <Text style={styles.description}>{slide.description}</Text>
+            </View>
           </Animated.View>
         ))}
       </Animated.ScrollView>
@@ -291,35 +304,58 @@ const styles = StyleSheet.create({
   },
   slide: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
+    justifyContent: 'flex-start',
   },
-  iconContainer: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+  imageContainer: {
+    width: '100%',
+    height: '60%',
+    position: 'relative',
+  },
+  slideImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  iconBadge: {
+    position: 'absolute',
+    bottom: -30,
+    alignSelf: 'center',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 48,
+    borderWidth: 4,
+    borderColor: Colors.white,
     shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 8,
   },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 48,
+  },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700' as const,
     color: Colors.black,
     textAlign: 'center',
     marginBottom: 16,
+    letterSpacing: 0.5,
   },
   description: {
-    fontSize: 18,
+    fontSize: 16,
     color: Colors.gray.dark,
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 24,
+    paddingHorizontal: 8,
   },
   footer: {
     paddingHorizontal: 24,

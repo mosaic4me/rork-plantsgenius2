@@ -4,6 +4,8 @@ import { X } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
+const ADS_ENABLED = process.env.EXPO_PUBLIC_ADMOB_ENABLED === 'true' || process.env.EXPO_PUBLIC_ENABLE_ADS === 'true';
+
 interface InterstitialAdProps {
   visible: boolean;
   onClose: () => void;
@@ -27,7 +29,7 @@ export default function InterstitialAd({ visible, onClose, duration = 15 }: Inte
     }
   }, [visible, duration]);
 
-  if (hasActiveSubscription() || !visible) {
+  if (!ADS_ENABLED || hasActiveSubscription() || !visible) {
     return null;
   }
 

@@ -16,10 +16,11 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile, resetPassword, dailyScansRemaining, hasActiveSubscription } = useAuth();
+  const { profile, updateProfile, resetPassword, dailyScansRemaining, hasActiveSubscription, authProvider } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [email, setEmail] = useState(profile?.email || '');
   const [loading, setLoading] = useState(false);
+  const isOAuthUser = authProvider === 'google' || authProvider === 'apple';
 
   const handleSave = async () => {
     setLoading(true);
@@ -143,29 +144,31 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
+        {!isOAuthUser && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Security</Text>
 
-          <View style={styles.infoCard}>
-            <Lock size={20} color={Colors.primary} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>Reset Password</Text>
-              <Text style={styles.infoDescription}>
-                Send a password reset link to your email
-              </Text>
+            <View style={styles.infoCard}>
+              <Lock size={20} color={Colors.primary} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoTitle}>Reset Password</Text>
+                <Text style={styles.infoDescription}>
+                  Send a password reset link to your email
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <TouchableOpacity
-            style={[styles.button, styles.buttonSecondary, loading && styles.buttonDisabled]}
-            onPress={handleResetPassword}
-            disabled={loading}
-          >
-            <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
-              {loading ? 'Sending...' : 'Send Reset Link'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.button, styles.buttonSecondary, loading && styles.buttonDisabled]}
+              onPress={handleResetPassword}
+              disabled={loading}
+            >
+              <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
+                {loading ? 'Sending...' : 'Send Reset Link'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </View>
   );

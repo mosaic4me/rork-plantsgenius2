@@ -4,6 +4,8 @@ import { X } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
+const ADS_ENABLED = process.env.EXPO_PUBLIC_ADMOB_ENABLED === 'true' || process.env.EXPO_PUBLIC_ENABLE_ADS === 'true';
+
 const ADS = [
   {
     id: '1',
@@ -42,7 +44,7 @@ export default function AdBanner() {
     return () => clearInterval(interval);
   }, []);
 
-  if (hasActiveSubscription() || !visible) {
+  if (!ADS_ENABLED || hasActiveSubscription() || !visible) {
     return null;
   }
 

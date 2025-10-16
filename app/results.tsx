@@ -132,19 +132,25 @@ export default function ResultsScreen() {
           position: 'top',
         });
       } else {
+        console.log('[Download] Requesting storage permission...');
         const { status } = await MediaLibrary.requestPermissionsAsync();
+        
         if (status !== 'granted') {
+          console.log('[Download] Permission denied:', status);
           Toast.show({
             type: 'error',
-            text1: 'Permission Denied',
-            text2: 'Please grant media library permission',
+            text1: 'Storage Permission Required',
+            text2: 'Please allow storage access in your device settings to download images',
             position: 'top',
+            visibilityTime: 5000,
           });
           return;
         }
 
+        console.log('[Download] Permission granted, saving image...');
         const asset = await MediaLibrary.createAssetAsync(plant.imageUri);
         await MediaLibrary.createAlbumAsync('PlantGenius', asset, false);
+        console.log('[Download] Image saved successfully');
         
         Toast.show({
           type: 'success',

@@ -3,7 +3,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Toast from 'react-native-toast-message';
+import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -84,7 +84,55 @@ export default function RootLayout() {
           <AppProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <RootLayoutNav />
-              <Toast />
+              <Toast
+                config={{
+                  success: (props) => (
+                    <BaseToast
+                      {...props}
+                      style={{ borderLeftColor: '#7CB342' }}
+                      contentContainerStyle={{ paddingHorizontal: 15 }}
+                      text1Style={{
+                        fontSize: 22,
+                        fontWeight: '600',
+                      }}
+                      text2Style={{
+                        fontSize: 19,
+                        fontWeight: '400',
+                      }}
+                    />
+                  ),
+                  error: (props) => (
+                    <ErrorToast
+                      {...props}
+                      style={{ borderLeftColor: '#F44336' }}
+                      contentContainerStyle={{ paddingHorizontal: 15 }}
+                      text1Style={{
+                        fontSize: 22,
+                        fontWeight: '600',
+                      }}
+                      text2Style={{
+                        fontSize: 19,
+                        fontWeight: '400',
+                      }}
+                    />
+                  ),
+                  info: (props) => (
+                    <InfoToast
+                      {...props}
+                      style={{ borderLeftColor: '#2196F3' }}
+                      contentContainerStyle={{ paddingHorizontal: 15 }}
+                      text1Style={{
+                        fontSize: 22,
+                        fontWeight: '600',
+                      }}
+                      text2Style={{
+                        fontSize: 19,
+                        fontWeight: '400',
+                      }}
+                    />
+                  ),
+                }}
+              />
             </GestureHandlerRootView>
           </AppProvider>
         </AuthProvider>

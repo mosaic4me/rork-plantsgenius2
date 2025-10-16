@@ -16,6 +16,7 @@ import Toast from 'react-native-toast-message';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import PaystackPayment from '@/components/PaystackPayment';
+import { getDaysRemaining, getScanLimits } from '@/utils/paymentHelpers';
 import Colors from '@/constants/colors';
 
 export default function ProfileScreen() {
@@ -129,7 +130,20 @@ export default function ProfileScreen() {
               }
             </Text>
           </View>
-          {!subscription && (
+          {subscription && subscription.status === 'active' ? (
+            <View style={styles.subscriptionInfo}>
+              <Text style={styles.subscriptionDays}>
+                {getDaysRemaining(subscription.end_date)} days remaining
+              </Text>
+              <Text style={styles.subscriptionExpiry}>
+                Renews on {new Date(subscription.end_date).toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                })}
+              </Text>
+            </View>
+          ) : (
             <Text style={styles.scansRemaining}>
               {dailyScansRemaining > 0 ? 
                 `${dailyScansRemaining} free scans remaining today` : 
@@ -163,6 +177,32 @@ export default function ProfileScreen() {
           
           <View style={styles.planComparisonCard}>
             <Text style={styles.planComparisonTitle}>Current Plan: {subscription ? (subscription.plan_type === 'basic' ? 'Basic' : 'Premium') : 'Free'}</Text>
+            <View style={styles.planPerks}>
+              {subscription ? (
+                subscription.plan_type === 'basic' ? (
+                  <>
+                    <Text style={styles.planPerk}>✓ {getScanLimits('basic').daily} scans per day</Text>
+                    <Text style={styles.planPerk}>✓ {getScanLimits('basic').monthly} scans per month</Text>
+                    <Text style={styles.planPerk}>✓ No ads</Text>
+                    <Text style={styles.planPerk}>✓ Up to {getScanLimits('basic').gardenLimit} plants in garden</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.planPerk}>✓ {getScanLimits('premium').daily} scans per day</Text>
+                    <Text style={styles.planPerk}>✓ {getScanLimits('premium').monthly} scans per month</Text>
+                    <Text style={styles.planPerk}>✓ No ads</Text>
+                    <Text style={styles.planPerk}>✓ Up to {getScanLimits('premium').gardenLimit} plants in garden</Text>
+                    <Text style={styles.planPerk}>✓ Priority support</Text>
+                  </>
+                )
+              ) : (
+                <>
+                  <Text style={styles.planPerk}>• {getScanLimits('free').daily} scans per day</Text>
+                  <Text style={styles.planPerk}>• {getScanLimits('free').monthly} scans per month</Text>
+                  <Text style={styles.planPerk}>• Limited garden capacity ({getScanLimits('free').gardenLimit} plants)</Text>
+                </>
+              )}
+            </View>
           </View>
 
           <View style={styles.plansContainer}>
@@ -407,6 +447,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.gray.dark,
     marginTop: 8,
+  },
+  subscriptionInfo: {
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.gray.light,
+  },
+  subscriptionDays: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.primary,
+    marginBottom: 4,
+  },
+  subscriptionExpiry: {
+    fontSize: 13,
+    color: Colors.gray.dark,
+  },
+  planPerks: {
+    marginTop: 12,
+    gap: 6,
+  },
+  planPerk: {
+    fontSize: 13,
+    color: Colors.gray.dark,
+    lineHeight: 20,
   },
   statsContainer: {
     flexDirection: 'row',

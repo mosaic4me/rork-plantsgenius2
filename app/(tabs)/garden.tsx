@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Plus, Droplets, Leaf, AlertCircle, X } from 'lucide-react-native';
+import { Plus, Droplets, Leaf, AlertCircle, X, History } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -22,12 +22,28 @@ export default function GardenScreen() {
   const insets = useSafeAreaInsets();
   const { garden, updatePlantWatering, history, addToGarden } = useApp();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedPlant, setSelectedPlant] = useState<any>(null);
 
   const handleWater = (id: string) => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     updatePlantWatering(id);
+    Toast.show({
+      type: 'success',
+      text1: 'Plant Watered',
+      text2: 'Watering recorded successfully',
+      position: 'top',
+    });
+  };
+
+  const handleViewHistory = (plant: any) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedPlant(plant);
+    setShowHistoryModal(true);
   };
 
   const handleAddPlant = () => {
@@ -173,15 +189,25 @@ export default function GardenScreen() {
                       )}
                     </View>
 
-                    <TouchableOpacity
-                      style={[styles.waterButton, needsWater && styles.waterButtonUrgent]}
-                      onPress={() => handleWater(plant.id)}
-                    >
-                      <Droplets size={18} color={Colors.white} />
-                      <Text style={styles.waterButtonText}>
-                        {needsWater ? 'Water Now' : 'Mark as Watered'}
-                      </Text>
-                    </TouchableOpacity>
+                    <View style={styles.actionsRow}>
+                      <TouchableOpacity
+                        style={[styles.waterButton, needsWater && styles.waterButtonUrgent]}
+                        onPress={() => handleWater(plant.id)}
+                      >
+                        <Droplets size={18} color={Colors.white} />
+                        <Text style={styles.waterButtonText}>
+                          {needsWater ? 'Water Now' : 'Mark as Watered'}
+                        </Text>
+                      </TouchableOpacity>
+                      {plant.wateringHistory && plant.wateringHistory.length > 0 && (
+                        <TouchableOpacity
+                          style={styles.historyButton}
+                          onPress={() => handleViewHistory(plant)}
+                        >
+                          <History size={18} color={Colors.primary} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
               );
@@ -247,6 +273,66 @@ export default function GardenScreen() {
                   );
                 }}
               />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showHistoryModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowHistoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.historyModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Watering History</Text>
+              <TouchableOpacity onPress={() => setShowHistoryModal(false)}>
+                <X size={24} color={Colors.black} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedPlant && (
+              <>
+                <View style={styles.historyPlantInfo}>
+                  <Text style={styles.historyPlantName}>{selectedPlant.commonName}</Text>
+                  <Text style={styles.historyPlantScientific}>{selectedPlant.scientificName}</Text>
+                </View>
+
+                <ScrollView style={styles.historyList}>
+                  {selectedPlant.wateringHistory && selectedPlant.wateringHistory.length > 0 ? (
+                    selectedPlant.wateringHistory.map((record: any, index: number) => (
+                      <View key={index} style={styles.historyItem}>
+                        <View style={styles.historyIconContainer}>
+                          <Droplets size={20} color={Colors.primary} />
+                        </View>
+                        <View style={styles.historyItemContent}>
+                          <Text style={styles.historyDate}>
+                            {new Date(record.timestamp).toLocaleDateString('en-US', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                            })}
+                          </Text>
+                          <Text style={styles.historyTime}>
+                            {new Date(record.timestamp).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </Text>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={styles.historyEmpty}>
+                      <Droplets size={48} color={Colors.gray.medium} />
+                      <Text style={styles.historyEmptyText}>No watering history yet</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </>
             )}
           </View>
         </View>
@@ -415,6 +501,91 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.white,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  historyButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.white,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyModalContainer: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    height: '80%',
+  },
+  historyPlantInfo: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.gray.light,
+    alignItems: 'center',
+  },
+  historyPlantName: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.black,
+    marginBottom: 4,
+  },
+  historyPlantScientific: {
+    fontSize: 16,
+    fontStyle: 'italic',
+    color: Colors.gray.dark,
+  },
+  historyList: {
+    flex: 1,
+    padding: 20,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.gray.light,
+  },
+  historyIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.gray.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  historyItemContent: {
+    flex: 1,
+  },
+  historyDate: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.black,
+    marginBottom: 4,
+  },
+  historyTime: {
+    fontSize: 13,
+    color: Colors.gray.dark,
+  },
+  historyEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  historyEmptyText: {
+    fontSize: 16,
+    color: Colors.gray.dark,
+    marginTop: 16,
   },
   emptyState: {
     flex: 1,
