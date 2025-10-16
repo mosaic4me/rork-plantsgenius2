@@ -10,7 +10,7 @@ const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_BASE_URL) {
     const url = process.env.EXPO_PUBLIC_API_BASE_URL;
     console.log('[tRPC] Using production API:', url);
-    return url.replace('/api', '');
+    return url;
   }
 
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {

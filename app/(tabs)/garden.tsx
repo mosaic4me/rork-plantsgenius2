@@ -194,9 +194,11 @@ export default function GardenScreen() {
                         style={[styles.waterButton, needsWater && styles.waterButtonUrgent]}
                         onPress={() => handleWater(plant.id)}
                       >
-                        <Droplets size={18} color={Colors.white} />
+                        <View style={styles.waterButtonIconContainer}>
+                          <Droplets size={18} color={Colors.white} />
+                        </View>
                         <Text style={styles.waterButtonText}>
-                          {needsWater ? 'Water Now' : 'Mark as Watered'}
+                          {needsWater ? 'Water Now' : 'Marked as Watered'}
                         </Text>
                       </TouchableOpacity>
                       {plant.wateringHistory && plant.wateringHistory.length > 0 && (
@@ -490,31 +492,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     backgroundColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   waterButtonUrgent: {
     backgroundColor: Colors.error,
+    shadowColor: Colors.error,
+  },
+  waterButtonIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   waterButtonText: {
     fontSize: 14,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
     color: Colors.white,
+    letterSpacing: 0.5,
   },
   actionsRow: {
     flexDirection: 'row',
     gap: 8,
   },
   historyButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     backgroundColor: Colors.white,
     borderWidth: 2,
     borderColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   historyModalContainer: {
     backgroundColor: Colors.white,

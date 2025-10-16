@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { User, Scan, Leaf, Crown, Settings, Info, ChevronRight, Mail, LogOut, Trash2, CreditCard } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,15 +17,72 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import PaystackPayment from '@/components/PaystackPayment';
 import { getDaysRemaining, getScanLimits } from '@/utils/paymentHelpers';
+import { convertCurrency, formatCurrency, getUserLocation, isWestAfricanCountry } from '@/utils/currencyConverter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from '@/constants/colors';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { stats } = useApp();
-  const { profile, subscription, signOut, dailyScansRemaining, deleteAccount } = useAuth();
+  const { profile, subscription, signOut, dailyScansRemaining, deleteAccount, isGuest } = useAuth();
   const [showPayment, setShowPayment] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ type: 'basic' | 'premium'; cycle: 'monthly' | 'yearly' }>({ type: 'basic', cycle: 'monthly' });
+  const [prices, setPrices] = useState({
+    basicMonthly: '$2.99',
+    basicYearly: '$32.28',
+    premiumMonthly: '$4.99',
+    premiumYearly: '$52.76',
+  });
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
+
+  useEffect(() => {
+    const initializePricing = async () => {
+      try {
+        const hasRequestedLocation = await AsyncStorage.getItem('hasRequestedLocationForCurrency');
+        if (hasRequestedLocation === 'true') {
+          return;
+        }
+
+        await AsyncStorage.setItem('hasRequestedLocationForCurrency', 'true');
+        setIsLoadingPrices(true);
+
+        const location = await getUserLocation();
+        
+        if (!location || !isWestAfricanCountry(location.country)) {
+          return;
+        }
+
+        if (location.currency === 'NGN') {
+          const basicMonthly = await convertCurrency(2.99, 'NGN');
+          const basicYearly = await convertCurrency(32.28, 'NGN');
+          const premiumMonthly = await convertCurrency(4.99, 'NGN');
+          const premiumYearly = await convertCurrency(52.76, 'NGN');
+
+          setPrices({
+            basicMonthly: formatCurrency(basicMonthly.amount, basicMonthly.currency),
+            basicYearly: formatCurrency(basicYearly.amount, basicYearly.currency),
+            premiumMonthly: formatCurrency(premiumMonthly.amount, premiumMonthly.currency),
+            premiumYearly: formatCurrency(premiumYearly.amount, premiumYearly.currency),
+          });
+
+          Toast.show({
+            type: 'success',
+            text1: 'Currency Updated',
+            text2: 'Prices converted to Nigerian Naira',
+            position: 'top',
+            visibilityTime: 2000,
+          });
+        }
+      } catch (error) {
+        console.error('[Profile] Error initializing pricing:', error);
+      } finally {
+        setIsLoadingPrices(false);
+      }
+    };
+
+    initializePricing();
+  }, []);
 
   const handlePress = (action: string) => {
     if (Platform.OS !== 'web') {
@@ -50,6 +107,9 @@ export default function ProfileScreen() {
           text2: 'You have been successfully signed out',
           position: 'top',
         });
+        if (isGuest) {
+          router.replace('/auth' as any);
+        }
         break;
       case 'delete':
         setShowDeleteModal(true);
@@ -210,8 +270,8 @@ export default function ProfileScreen() {
             
             <View style={styles.planCard}>
               <Text style={styles.planTitle}>Basic Plan</Text>
-              <Text style={styles.planPrice}>₦2.99/month</Text>
-              <Text style={styles.planSavings}>₦32.28/year (Save 10%)</Text>
+              <Text style={styles.planPrice}>{isLoadingPrices ? 'Loading...' : prices.basicMonthly}/month</Text>
+              <Text style={styles.planSavings}>{isLoadingPrices ? 'Loading...' : prices.basicYearly}/year (Save 10%)</Text>
               
               <View style={styles.planFeatures}>
                 <FeatureItem text="10 scans per day" />
@@ -240,8 +300,8 @@ export default function ProfileScreen() {
                 <Text style={styles.bestValueText}>BEST VALUE</Text>
               </View>
               <Text style={styles.planTitle}>Premium Plan</Text>
-              <Text style={styles.planPrice}>₦4.99/month</Text>
-              <Text style={styles.planSavings}>₦52.76/year (Save 12%)</Text>
+              <Text style={styles.planPrice}>{isLoadingPrices ? 'Loading...' : prices.premiumMonthly}/month</Text>
+              <Text style={styles.planSavings}>{isLoadingPrices ? 'Loading...' : prices.premiumYearly}/year (Save 12%)</Text>
               
               <View style={styles.planFeatures}>
                 <FeatureItem text="50 scans per day" />

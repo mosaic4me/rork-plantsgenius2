@@ -85,6 +85,8 @@ export default function RootLayout() {
             <GestureHandlerRootView style={{ flex: 1 }}>
               <RootLayoutNav />
               <Toast
+                visibilityTime={2000}
+                autoHide={true}
                 config={{
                   success: (props) => (
                     <BaseToast
@@ -92,13 +94,14 @@ export default function RootLayout() {
                       style={{ borderLeftColor: '#7CB342' }}
                       contentContainerStyle={{ paddingHorizontal: 15 }}
                       text1Style={{
-                        fontSize: 22,
+                        fontSize: 17,
                         fontWeight: '600',
                       }}
                       text2Style={{
-                        fontSize: 19,
+                        fontSize: 15,
                         fontWeight: '400',
                       }}
+                      text2NumberOfLines={0}
                     />
                   ),
                   error: (props) => (
@@ -107,13 +110,14 @@ export default function RootLayout() {
                       style={{ borderLeftColor: '#F44336' }}
                       contentContainerStyle={{ paddingHorizontal: 15 }}
                       text1Style={{
-                        fontSize: 22,
+                        fontSize: 17,
                         fontWeight: '600',
                       }}
                       text2Style={{
-                        fontSize: 19,
+                        fontSize: 15,
                         fontWeight: '400',
                       }}
+                      text2NumberOfLines={0}
                     />
                   ),
                   info: (props) => (
@@ -122,13 +126,14 @@ export default function RootLayout() {
                       style={{ borderLeftColor: '#2196F3' }}
                       contentContainerStyle={{ paddingHorizontal: 15 }}
                       text1Style={{
-                        fontSize: 22,
+                        fontSize: 17,
                         fontWeight: '600',
                       }}
                       text2Style={{
-                        fontSize: 19,
+                        fontSize: 15,
                         fontWeight: '400',
                       }}
+                      text2NumberOfLines={0}
                     />
                   ),
                 }}

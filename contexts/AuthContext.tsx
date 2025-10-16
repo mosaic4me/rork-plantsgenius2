@@ -263,10 +263,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     try {
       await AsyncStorage.removeItem('currentUser');
       await AsyncStorage.removeItem('guestMode');
+      await AsyncStorage.removeItem('authProvider');
       setUser(null);
       setProfile(null);
       setSubscription(null);
       setIsGuest(false);
+      setAuthProvider(null);
     } catch (error) {
       console.error('Error signing out:', error);
     }
