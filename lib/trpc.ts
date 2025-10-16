@@ -64,12 +64,24 @@ export const trpcClient = trpc.createClient({
           
           if (!response.ok) {
             const contentType = response.headers.get('content-type');
+            let responseText = '';
+            
+            try {
+              responseText = await response.text();
+            } catch (_e) {
+              console.error('[tRPC] Could not read response body');
+            }
             
             if (response.status === 404) {
               console.error('[tRPC] 404 Error - endpoint not found:', url);
-              console.error('[tRPC] The backend is not deployed or not responding');
+              console.error('[tRPC] Response body:', responseText);
+              console.error('[tRPC] The backend is not deployed or the endpoint structure is different');
               console.error('[tRPC] Expected endpoint: https://api.plantsgenius.site/api/trpc');
-              throw new Error('BACKEND_NOT_AVAILABLE: The authentication service is not currently available. The backend may not be deployed yet. Please use Guest Mode to explore the app.');
+              console.error('[tRPC] Possible issues:');
+              console.error('[tRPC]   1. Backend not deployed at https://api.plantsgenius.site');
+              console.error('[tRPC]   2. Backend has different routing structure');
+              console.error('[tRPC]   3. CORS or proxy configuration issues');
+              throw new Error('The backend API is not available at this time. The server may not be deployed yet. Please use Guest Mode to explore the app with limited features.');
             }
             
             if (response.status === 500) {

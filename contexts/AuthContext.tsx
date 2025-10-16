@@ -176,18 +176,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.error('[SignUp] Error message:', error?.message);
       console.error('[SignUp] Error name:', error?.name);
       
-      let errorMessage = 'Unable to create account. Please try Guest Mode.';
+      let errorMessage = 'Unable to create account at this time.';
       
       if (error?.message) {
         const msg = error.message;
         
-        if (msg.includes('BACKEND_NOT_CONFIGURED') || 
-            msg.includes('BACKEND_NOT_FOUND') || 
-            msg.includes('BACKEND_NOT_AVAILABLE') ||
-            msg.includes('BACKEND_ERROR') ||
-            msg.includes('BACKEND_TIMEOUT') ||
-            msg.includes('BACKEND_NETWORK_ERROR')) {
-          errorMessage = msg.split(':')[1]?.trim() || 'Authentication service is currently unavailable. Please use Guest Mode to explore the app.';
+        if (msg.includes('backend') || 
+            msg.includes('not available') || 
+            msg.includes('not deployed') ||
+            msg.includes('cannot connect') ||
+            msg.includes('network') ||
+            msg.includes('timeout') ||
+            msg.toLowerCase().includes('guest mode')) {
+          errorMessage = 'The authentication service is currently unavailable. The backend server may not be deployed yet.';
         } else if (msg.toLowerCase().includes('already exists')) {
           errorMessage = 'This email is already registered. Please sign in or use a different email.';
         } else if (msg.toLowerCase().includes('invalid email')) {
@@ -195,9 +196,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         } else if (msg.toLowerCase().includes('password must be')) {
           errorMessage = error.message;
         } else if (msg.toLowerCase().includes('mongodb') || msg.toLowerCase().includes('database')) {
-          errorMessage = 'Database service is unavailable. Please use Guest Mode.';
+          errorMessage = 'Database service is unavailable.';
         } else {
-          errorMessage = error.message;
+          errorMessage = msg;
         }
       }
       
@@ -236,26 +237,27 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.error('[SignIn] Error message:', error?.message);
       console.error('[SignIn] Error name:', error?.name);
       
-      let errorMessage = 'Unable to sign in. Please try Guest Mode.';
+      let errorMessage = 'Unable to sign in at this time.';
       
       if (error?.message) {
         const msg = error.message;
         
-        if (msg.includes('BACKEND_NOT_CONFIGURED') || 
-            msg.includes('BACKEND_NOT_FOUND') || 
-            msg.includes('BACKEND_NOT_AVAILABLE') ||
-            msg.includes('BACKEND_ERROR') ||
-            msg.includes('BACKEND_TIMEOUT') ||
-            msg.includes('BACKEND_NETWORK_ERROR')) {
-          errorMessage = msg.split(':')[1]?.trim() || 'Authentication service is currently unavailable. Please use Guest Mode.';
+        if (msg.includes('backend') || 
+            msg.includes('not available') || 
+            msg.includes('not deployed') ||
+            msg.includes('cannot connect') ||
+            msg.includes('network') ||
+            msg.includes('timeout') ||
+            msg.toLowerCase().includes('guest mode')) {
+          errorMessage = 'The authentication service is currently unavailable. The backend server may not be deployed yet.';
         } else if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('invalid email or password')) {
           errorMessage = 'Invalid email or password. Please try again.';
         } else if (msg.toLowerCase().includes('user not found')) {
           errorMessage = 'No account found with this email. Please sign up first.';
         } else if (msg.toLowerCase().includes('mongodb') || msg.toLowerCase().includes('database')) {
-          errorMessage = 'Database service is unavailable. Please use Guest Mode.';
+          errorMessage = 'Database service is unavailable.';
         } else {
-          errorMessage = error.message;
+          errorMessage = msg;
         }
       }
       
