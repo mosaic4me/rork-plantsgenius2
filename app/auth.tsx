@@ -114,16 +114,17 @@ export default function AuthScreen() {
                              msg.includes('unavailable') || 
                              msg.includes('guest mode') ||
                              msg.includes('backend') ||
+                             msg.includes('not deployed') ||
                              msg.includes('cannot connect') ||
                              msg.includes('network') ||
                              msg.includes('timeout');
       
       Toast.show({
         type: isBackendError ? 'info' : 'error',
-        text1: isBackendError ? 'Service Unavailable' : 'Authentication Error',
-        text2: errorMessage,
+        text1: isBackendError ? '⚠️ Backend Service Unavailable' : 'Authentication Error',
+        text2: errorMessage + (isBackendError ? ' Use Guest Mode to explore the app.' : ''),
         position: 'top',
-        visibilityTime: 6000,
+        visibilityTime: 5000,
       });
     } finally {
       setLoading(false);

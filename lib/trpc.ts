@@ -67,17 +67,20 @@ export const trpcClient = trpc.createClient({
             
             if (response.status === 404) {
               console.error('[tRPC] 404 Error - endpoint not found:', url);
-              throw new Error('BACKEND_NOT_FOUND: The backend endpoint was not found. Please verify the API is deployed at https://api.plantsgenius.site');
+              console.error('[tRPC] The backend is not deployed or not responding');
+              console.error('[tRPC] Expected endpoint: https://api.plantsgenius.site/api/trpc');
+              throw new Error('BACKEND_NOT_AVAILABLE: The authentication service is not currently available. The backend may not be deployed yet. Please use Guest Mode to explore the app.');
             }
             
             if (response.status === 500) {
               console.error('[tRPC] 500 Error - server error');
-              throw new Error('BACKEND_ERROR: Server error occurred. Please try again later.');
+              throw new Error('BACKEND_ERROR: Server encountered an error. Please try again later or use Guest Mode.');
             }
             
             if (contentType?.includes('text/html')) {
               console.error('[tRPC] Received HTML instead of JSON - wrong endpoint or routing issue');
-              throw new Error('BACKEND_ERROR: Invalid response from server. Please check API configuration.');
+              console.error('[tRPC] This usually means the backend is not properly deployed');
+              throw new Error('BACKEND_NOT_AVAILABLE: Invalid response from server. The backend may not be deployed correctly. Please use Guest Mode.');
             }
           }
 
@@ -90,7 +93,9 @@ export const trpcClient = trpc.createClient({
           }
           
           if (error.message?.includes('Failed to fetch') || error.message?.includes('Network request failed')) {
-            throw new Error('BACKEND_NETWORK_ERROR: Cannot reach the server. Please check your internet connection and verify the API is running at https://api.plantsgenius.site');
+            console.error('[tRPC] Network error - cannot reach backend');
+            console.error('[tRPC] This could mean: no internet, backend not deployed, or CORS issues');
+            throw new Error('BACKEND_NETWORK_ERROR: Cannot connect to the authentication service. Please check your internet connection or use Guest Mode.');
           }
           
           throw error;

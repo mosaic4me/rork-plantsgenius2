@@ -183,6 +183,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         if (msg.includes('BACKEND_NOT_CONFIGURED') || 
             msg.includes('BACKEND_NOT_FOUND') || 
+            msg.includes('BACKEND_NOT_AVAILABLE') ||
             msg.includes('BACKEND_ERROR') ||
             msg.includes('BACKEND_TIMEOUT') ||
             msg.includes('BACKEND_NETWORK_ERROR')) {
@@ -242,6 +243,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         if (msg.includes('BACKEND_NOT_CONFIGURED') || 
             msg.includes('BACKEND_NOT_FOUND') || 
+            msg.includes('BACKEND_NOT_AVAILABLE') ||
             msg.includes('BACKEND_ERROR') ||
             msg.includes('BACKEND_TIMEOUT') ||
             msg.includes('BACKEND_NETWORK_ERROR')) {
