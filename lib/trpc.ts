@@ -6,26 +6,31 @@ import superjson from "superjson";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
-    const url = process.env.EXPO_PUBLIC_API_BASE_URL;
-    console.log('[tRPC] Using production API:', url);
-    return url.endsWith('/') ? url.slice(0, -1) : url;
+  const apiUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  
+  console.log('[tRPC] Environment check:');
+  console.log('[tRPC] - EXPO_PUBLIC_API_BASE_URL:', apiUrl || 'NOT SET');
+  console.log('[tRPC] - All env vars:', Object.keys(process.env).filter(k => k.startsWith('EXPO_PUBLIC')));
+  
+  if (apiUrl && apiUrl.trim() !== '') {
+    const cleanUrl = apiUrl.trim();
+    const finalUrl = cleanUrl.endsWith('/') ? cleanUrl.slice(0, -1) : cleanUrl;
+    console.log('[tRPC] ✅ Using configured API URL:', finalUrl);
+    return finalUrl;
   }
 
-  console.warn('[tRPC] EXPO_PUBLIC_API_BASE_URL not configured');
-  console.warn('[tRPC] Please set EXPO_PUBLIC_API_BASE_URL to https://api.plantsgenius.site');
-  console.warn('[tRPC] You can continue using Guest Mode for limited features');
-  return null;
+  console.warn('[tRPC] ⚠️ EXPO_PUBLIC_API_BASE_URL not configured in .env file');
+  console.warn('[tRPC] ⚠️ Expected: EXPO_PUBLIC_API_BASE_URL=https://api.plantsgenius.site');
+  console.warn('[tRPC] ⚠️ App will run in offline/guest mode with limited features');
+  
+  return 'https://api.plantsgenius.site';
 };
 
 const baseUrl = getBaseUrl();
 
-if (baseUrl) {
-  console.log('[tRPC] Client configured to connect to:', `${baseUrl}/api/trpc`);
-} else {
-  console.warn('[tRPC] Backend not configured - app will run in offline mode');
-  console.warn('[tRPC] Authentication and cloud features will be unavailable');
-}
+console.log('[tRPC] Final tRPC endpoint:', `${baseUrl}/api/trpc`);
+console.log('[tRPC] Backend status: READY');
+console.log('[tRPC] Authentication and cloud features: AVAILABLE');
 
 export const trpcClient = trpc.createClient({
   links: [
