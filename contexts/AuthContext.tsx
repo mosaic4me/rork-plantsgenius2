@@ -2,6 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trpcClient } from '@/lib/trpc';
+import { signInWithGoogle, signInWithApple, type OAuthUser } from '@/utils/oauthHelpers';
 
 interface Profile {
   id: string;
@@ -333,6 +334,85 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   }, [user]);
 
+  const signInWithOAuth = useCallback(async (provider: 'google' | 'apple') => {
+    try {
+      console.log(`[OAuth] Starting ${provider} sign in`);
+      
+      let oauthUser: OAuthUser | null = null;
+      
+      if (provider === 'google') {
+        oauthUser = await signInWithGoogle();
+      } else if (provider === 'apple') {
+        oauthUser = await signInWithApple();
+      }
+      
+      if (!oauthUser) {
+        return { data: null, error: null };
+      }
+      
+      console.log(`[OAuth] ${provider} sign in successful, creating/fetching user`);
+      
+      try {
+        const result = await trpcClient.auth.signIn.mutate({
+          email: oauthUser.email,
+          password: oauthUser.id,
+        });
+        
+        const userData: User = {
+          id: result.id,
+          email: result.email,
+          fullName: result.fullName,
+          authProvider: provider,
+        };
+        
+        setUser(userData);
+        setAuthProvider(provider);
+        await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
+        await AsyncStorage.setItem('authProvider', provider);
+        await loadProfile(userData.id);
+        await loadSubscription(userData.id);
+        await loadDailyScans(userData.id);
+        
+        return { data: userData, error: null };
+      } catch (signInError: any) {
+        if (signInError.message?.includes('Invalid credentials') || 
+            signInError.message?.includes('User not found')) {
+          console.log(`[OAuth] User not found, creating new account`);
+          
+          const createResult = await trpcClient.auth.signUp.mutate({
+            email: oauthUser.email,
+            password: oauthUser.id,
+            fullName: oauthUser.fullName,
+          });
+          
+          const userData: User = {
+            id: createResult.id,
+            email: createResult.email,
+            fullName: createResult.fullName,
+            authProvider: provider,
+          };
+          
+          setUser(userData);
+          setAuthProvider(provider);
+          await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
+          await AsyncStorage.setItem('authProvider', provider);
+          await loadProfile(userData.id);
+          await loadSubscription(userData.id);
+          await loadDailyScans(userData.id);
+          
+          return { data: userData, error: null };
+        }
+        throw signInError;
+      }
+    } catch (error: any) {
+      console.error(`[OAuth] ${provider} sign in error:`, error);
+      return { 
+        data: null, 
+        error: { message: error.message || `Failed to sign in with ${provider}` } 
+      };
+    }
+  }, [loadProfile, loadSubscription, loadDailyScans]);
+
   const continueAsGuest = useCallback(async () => {
     try {
       await AsyncStorage.setItem('guestMode', 'true');
@@ -351,8 +431,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     loading,
     dailyScansRemaining,
     isGuest,
+    authProvider,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
     updateProfile,
     resetPassword,
@@ -368,8 +450,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     loading,
     dailyScansRemaining,
     isGuest,
+    authProvider,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
     updateProfile,
     resetPassword,

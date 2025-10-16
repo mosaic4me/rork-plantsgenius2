@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { User, Scan, Leaf, Crown, Settings, Info, ChevronRight, Mail, LogOut, Trash2 } from 'lucide-react-native';
+import { User, Scan, Leaf, Crown, Settings, Info, ChevronRight, Mail, LogOut, Trash2, CreditCard } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -34,6 +34,9 @@ export default function ProfileScreen() {
     switch (action) {
       case 'settings':
         router.push('/settings' as any);
+        break;
+      case 'billing':
+        router.push('/billing' as any);
         break;
       case 'contact':
         router.push('/contact' as any);
@@ -233,6 +236,12 @@ export default function ProfileScreen() {
             title="Settings"
             subtitle="Edit profile, reset password"
             onPress={() => handlePress('settings')}
+          />
+          <MenuItem
+            icon={<CreditCard size={20} color={Colors.primary} />}
+            title="Billing & Subscription"
+            subtitle="Manage your subscription and payment"
+            onPress={() => handlePress('billing')}
           />
           <MenuItem
             icon={<Mail size={20} color={Colors.primary} />}

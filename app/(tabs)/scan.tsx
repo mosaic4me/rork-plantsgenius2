@@ -79,38 +79,33 @@ export default function ScanScreen() {
   const handleCapture = async () => {
     if (isCapturing || !cameraRef.current) return;
 
-    if (!canScan() && !hasActiveSubscription()) {
+    if (!canScan()) {
+      if (hasActiveSubscription()) {
+        Toast.show({
+          type: 'info',
+          text1: 'Daily Scan Limit Reached',
+          text2: 'You have used all scans for today. Limit will reset at midnight.',
+          position: 'top',
+          visibilityTime: 4000,
+        });
+        return;
+      }
+
       Toast.show({
         type: 'info',
-        text1: 'Daily Limit Reached',
-        text2: 'Watch a 1-minute ad to continue scanning',
+        text1: 'Free Scans Exhausted',
+        text2: 'Tap "Earn a Free Scan" in your Profile to watch an ad and continue',
         position: 'top',
-        visibilityTime: 4000,
+        visibilityTime: 5000,
       });
       
-      try {
-        setIsCapturing(true);
-        const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.8,
-          base64: false,
-        });
-
-        if (photo && photo.uri) {
-          const permanentUri = await copyImageToPermanentStorage(photo.uri);
-          setPendingImageUri(permanentUri);
-          setShowAd(true);
-        }
-      } catch (error: any) {
-        console.error('Error taking picture:', error);
-        Toast.show({
-          type: 'error',
-          text1: 'Camera Error',
-          text2: error.message || 'Failed to capture photo. Please try again.',
-          position: 'top',
-        });
-      } finally {
-        setIsCapturing(false);
+      if (Platform.OS !== 'web') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
+      
+      setTimeout(() => {
+        router.push('/profile' as any);
+      }, 1500);
       return;
     }
 
@@ -176,37 +171,33 @@ export default function ScanScreen() {
   };
 
   const handleGalleryPick = async () => {
-    if (!canScan() && !hasActiveSubscription()) {
+    if (!canScan()) {
+      if (hasActiveSubscription()) {
+        Toast.show({
+          type: 'info',
+          text1: 'Daily Scan Limit Reached',
+          text2: 'You have used all scans for today. Limit will reset at midnight.',
+          position: 'top',
+          visibilityTime: 4000,
+        });
+        return;
+      }
+
       Toast.show({
         type: 'info',
-        text1: 'Daily Limit Reached',
-        text2: 'Watch a 1-minute ad to continue scanning',
+        text1: 'Free Scans Exhausted',
+        text2: 'Tap "Earn a Free Scan" in your Profile to watch an ad and continue',
         position: 'top',
-        visibilityTime: 4000,
+        visibilityTime: 5000,
       });
       
-      try {
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 0.8,
-        });
-
-        if (!result.canceled && result.assets[0]) {
-          const permanentUri = await copyImageToPermanentStorage(result.assets[0].uri);
-          setPendingImageUri(permanentUri);
-          setShowAd(true);
-        }
-      } catch (error: any) {
-        console.error('Error picking image:', error);
-        Toast.show({
-          type: 'error',
-          text1: 'Gallery Error',
-          text2: error.message || 'Failed to select image. Please try again.',
-          position: 'top',
-        });
+      if (Platform.OS !== 'web') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
+      
+      setTimeout(() => {
+        router.push('/profile' as any);
+      }, 1500);
       return;
     }
 

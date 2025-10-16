@@ -1,35 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { X } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { getPaymentDetails } from '@/utils/paymentHelpers';
+import type { PlanType, BillingCycle } from '@/utils/paymentHelpers';
 
 interface PaystackPaymentProps {
   visible: boolean;
   onClose: () => void;
-  planType: 'basic' | 'premium';
-  billingCycle: 'monthly' | 'yearly';
+  planType: PlanType;
+  billingCycle: BillingCycle;
 }
 
-const PLANS = {
-  basic: {
-    monthly: { amount: 299, discount: 0 },
-    yearly: { amount: 3228, discount: 10 },
-  },
-  premium: {
-    monthly: { amount: 499, discount: 0 },
-    yearly: { amount: 5276, discount: 12 },
-  },
-};
-
 export default function PaystackPayment({ visible, onClose, planType, billingCycle }: PaystackPaymentProps) {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [paymentDetails, setPaymentDetails] = useState<{
+    amount: number;
+    currency: string;
+    symbol: string;
+    formattedAmount: string;
+  } | null>(null);
 
-  const plan = PLANS[planType][billingCycle];
-  const amount = plan.amount * 100;
+  useEffect(() => {
+    if (visible) {
+      loadPaymentDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, planType, billingCycle]);
+
+  const loadPaymentDetails = async () => {
+    try {
+      const details = await getPaymentDetails(planType, billingCycle);
+      setPaymentDetails({
+        amount: details.amount,
+        currency: details.currency,
+        symbol: details.symbol,
+        formattedAmount: `${details.symbol}${details.amount.toLocaleString()}`,
+      });
+    } catch (error) {
+      console.error('[Payment] Error loading details:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load payment details',
+        position: 'top',
+      });
+    }
+  };
 
   const handlePayment = async () => {
     if (!user) {
@@ -114,9 +135,15 @@ export default function PaystackPayment({ visible, onClose, planType, billingCyc
               <Text style={styles.billingCycle}>
                 {billingCycle === 'monthly' ? 'Monthly' : 'Yearly'}
               </Text>
-              <Text style={styles.amount}>₦{(amount / 100).toFixed(2)}</Text>
-              {plan.discount > 0 && (
-                <Text style={styles.discount}>Save {plan.discount}%</Text>
+              {paymentDetails ? (
+                <Text style={styles.amount}>{paymentDetails.formattedAmount}</Text>
+              ) : (
+                <ActivityIndicator color={Colors.white} />
+              )}
+              {billingCycle === 'yearly' && (
+                <Text style={styles.discount}>
+                  Save {planType === 'basic' ? '10%' : '12%'}
+                </Text>
               )}
             </View>
 
@@ -124,31 +151,37 @@ export default function PaystackPayment({ visible, onClose, planType, billingCyc
               <Text style={styles.featuresTitle}>What you get:</Text>
               {planType === 'basic' ? (
                 <>
-                  <Text style={styles.feature}>• 50 plant scans per day</Text>
-                  <Text style={styles.feature}>• Basic plant care guides</Text>
-                  <Text style={styles.feature}>• Ad-free experience</Text>
+                  <Text style={styles.feature}>• 10 scans per day</Text>
+                  <Text style={styles.feature}>• 150 scans per month</Text>
+                  <Text style={styles.feature}>• No ads</Text>
+                  <Text style={styles.feature}>• Add up to 5 plants in garden</Text>
+                  <Text style={styles.feature}>• Basic support</Text>
                 </>
               ) : (
                 <>
-                  <Text style={styles.feature}>• Unlimited plant scans</Text>
-                  <Text style={styles.feature}>• Advanced care guides</Text>
-                  <Text style={styles.feature}>• AR plant visualization</Text>
-                  <Text style={styles.feature}>• Health diagnosis</Text>
+                  <Text style={styles.feature}>• 50 scans per day</Text>
+                  <Text style={styles.feature}>• 600 scans per month</Text>
+                  <Text style={styles.feature}>• No ads</Text>
+                  <Text style={styles.feature}>• Add up to 50 plants in garden</Text>
                   <Text style={styles.feature}>• Priority support</Text>
-                  <Text style={styles.feature}>• Ad-free experience</Text>
+                  <Text style={styles.feature}>• Advanced plant care tips</Text>
                 </>
               )}
             </View>
 
             <TouchableOpacity
-              style={styles.payButton}
+              style={[styles.payButton, (!paymentDetails || loading) && styles.payButtonDisabled]}
               onPress={handlePayment}
-              disabled={loading}
+              disabled={!paymentDetails || loading}
             >
               {loading ? (
                 <ActivityIndicator color={Colors.white} />
+              ) : paymentDetails ? (
+                <Text style={styles.payButtonText}>
+                  Subscribe Now - {paymentDetails.formattedAmount}
+                </Text>
               ) : (
-                <Text style={styles.payButtonText}>Subscribe Now - ₦{(amount / 100).toFixed(2)}</Text>
+                <Text style={styles.payButtonText}>Loading...</Text>
               )}
             </TouchableOpacity>
 
@@ -260,6 +293,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700' as const,
     color: Colors.white,
+  },
+  payButtonDisabled: {
+    opacity: 0.6,
   },
   note: {
     fontSize: 12,

@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import Toast from 'react-native-toast-message';
 import { Mail, Lock, User } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,12 +21,20 @@ import Colors from '@/constants/colors';
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
-  const { signIn, signUp, continueAsGuest } = useAuth();
+  const { signIn, signUp, signInWithOAuth, continueAsGuest } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOAuthLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [showAppleSignIn, setShowAppleSignIn] = useState(false);
+
+  React.useEffect(() => {
+    if (Platform.OS === 'ios') {
+      AppleAuthentication.isAvailableAsync().then(setShowAppleSignIn);
+    }
+  }, []);
 
   const handleAuth = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -113,6 +122,47 @@ export default function AuthScreen() {
   };
 
 
+
+  const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
+    setOAuthLoading(true);
+    try {
+      if (Platform.OS !== 'web') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+
+      const { data, error } = await signInWithOAuth(provider);
+      
+      if (error) {
+        Toast.show({
+          type: 'error',
+          text1: `${provider === 'google' ? 'Google' : 'Apple'} Sign In Failed`,
+          text2: error.message,
+          position: 'top',
+          visibilityTime: 5000,
+        });
+        return;
+      }
+
+      if (data) {
+        Toast.show({
+          type: 'success',
+          text1: 'Welcome!',
+          text2: `Signed in with ${provider === 'google' ? 'Google' : 'Apple'}`,
+          position: 'top',
+        });
+        router.replace('/(tabs)' as any);
+      }
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message || 'Something went wrong',
+        position: 'top',
+      });
+    } finally {
+      setOAuthLoading(false);
+    }
+  };
 
   const handleGuestMode = async () => {
     setLoading(true);
@@ -212,9 +262,9 @@ export default function AuthScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.authButton, loading && styles.buttonDisabled]}
+            style={[styles.authButton, (loading || oauthLoading) && styles.buttonDisabled]}
             onPress={handleAuth}
-            disabled={loading}
+            disabled={loading || oauthLoading}
             activeOpacity={0.8}
           >
             {loading ? (
@@ -226,7 +276,48 @@ export default function AuthScreen() {
             )}
           </TouchableOpacity>
 
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
+          <TouchableOpacity
+            style={[styles.oauthButton, styles.googleButton, (loading || oauthLoading) && styles.buttonDisabled]}
+            onPress={() => handleOAuthSignIn('google')}
+            disabled={loading || oauthLoading}
+            activeOpacity={0.8}
+          >
+            {oauthLoading ? (
+              <ActivityIndicator color={Colors.black} />
+            ) : (
+              <>
+                <Image
+                  source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }}
+                  style={styles.googleIcon}
+                />
+                <Text style={styles.oauthButtonText}>Continue with Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {showAppleSignIn && (
+            <TouchableOpacity
+              style={[styles.oauthButton, styles.appleButton, (loading || oauthLoading) && styles.buttonDisabled]}
+              onPress={() => handleOAuthSignIn('apple')}
+              disabled={loading || oauthLoading}
+              activeOpacity={0.8}
+            >
+              {oauthLoading ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <>
+                  <Text style={styles.appleIcon}></Text>
+                  <Text style={styles.appleButtonText}>Continue with Apple</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.switchButton}
@@ -246,9 +337,9 @@ export default function AuthScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.guestButton, loading && styles.buttonDisabled]}
+            style={[styles.guestButton, (loading || oauthLoading) && styles.buttonDisabled]}
             onPress={handleGuestMode}
-            disabled={loading}
+            disabled={loading || oauthLoading}
             activeOpacity={0.8}
           >
             <Text style={styles.guestButtonText}>Continue as Guest</Text>
@@ -347,7 +438,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: 20,
   },
   dividerLine: {
     flex: 1,
@@ -360,35 +451,42 @@ const styles = StyleSheet.create({
     color: Colors.gray.medium,
     fontWeight: '600' as const,
   },
-  googleButton: {
+  oauthButton: {
     flexDirection: 'row',
-    backgroundColor: Colors.white,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  googleButton: {
+    backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.gray.light,
-    gap: 12,
   },
   googleIcon: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    backgroundColor: '#4285F4',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  googleIconText: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
-  googleButtonText: {
+  oauthButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.black,
+  },
+  appleButton: {
+    backgroundColor: Colors.black,
+    borderWidth: 0,
+  },
+  appleIcon: {
+    fontSize: 24,
+    color: Colors.white,
+  },
+  appleButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.white,
   },
   switchButton: {
     marginTop: 24,
