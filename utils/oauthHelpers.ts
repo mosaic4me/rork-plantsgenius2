@@ -33,8 +33,12 @@ export async function signInWithGoogle(): Promise<OAuthUser | null> {
       clientId = GOOGLE_ANDROID_CLIENT_ID;
     }
 
-    if (!clientId) {
-      throw new Error('Google OAuth client ID not configured');
+    console.log('[Google OAuth] Platform:', Platform.OS);
+    console.log('[Google OAuth] Client ID available:', !!clientId);
+    console.log('[Google OAuth] Client ID value:', clientId);
+
+    if (!clientId || clientId.includes('your_google')) {
+      throw new Error('Google Sign-In is not configured yet. Please configure the Google OAuth client IDs in your .env file or use email/password authentication.');
     }
 
     const discovery = {
@@ -77,8 +81,11 @@ export async function signInWithGoogle(): Promise<OAuthUser | null> {
 
     console.log('[Google OAuth] Auth cancelled or failed:', result.type);
     return null;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Google OAuth] Error:', error);
+    if (error.message && error.message.includes('not configured')) {
+      throw error;
+    }
     throw new Error('Failed to sign in with Google. Please try again.');
   }
 }

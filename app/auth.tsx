@@ -143,12 +143,13 @@ export default function AuthScreen() {
       const { data, error } = await signInWithOAuth(provider);
       
       if (error) {
+        const isConfigError = error.message?.includes('not configured');
         Toast.show({
-          type: 'error',
-          text1: `${provider === 'google' ? 'Google' : 'Apple'} Sign In Failed`,
+          type: isConfigError ? 'info' : 'error',
+          text1: isConfigError ? '⚠️ Configuration Required' : `${provider === 'google' ? 'Google' : 'Apple'} Sign In Failed`,
           text2: error.message,
           position: 'top',
-          visibilityTime: 5000,
+          visibilityTime: isConfigError ? 4000 : 3000,
         });
         return;
       }
@@ -159,15 +160,18 @@ export default function AuthScreen() {
           text1: 'Welcome!',
           text2: `Signed in with ${provider === 'google' ? 'Google' : 'Apple'}`,
           position: 'top',
+          visibilityTime: 2000,
         });
         router.replace('/(tabs)' as any);
       }
     } catch (error: any) {
+      const isConfigError = error?.message?.includes('not configured');
       Toast.show({
-        type: 'error',
-        text1: 'Error',
+        type: isConfigError ? 'info' : 'error',
+        text1: isConfigError ? '⚠️ Configuration Required' : 'Error',
         text2: error.message || 'Something went wrong',
         position: 'top',
+        visibilityTime: isConfigError ? 4000 : 2000,
       });
     } finally {
       setOAuthLoading(false);
