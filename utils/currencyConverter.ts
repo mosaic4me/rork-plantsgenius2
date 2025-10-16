@@ -85,28 +85,47 @@ async function fetchCurrencyRates(): Promise<CurrencyRates> {
     return cachedRates;
   }
 
+  const apiKey = process.env.EXPO_PUBLIC_CURRENCY_API_KEY;
+  const apiUrl = process.env.EXPO_PUBLIC_CURRENCY_API_URL;
+  
+  if (!apiKey || !apiUrl) {
+    console.warn('[Currency] API configuration missing, using fallback rates');
+    return {
+      USD: 1,
+      EUR: 0.92,
+      GBP: 0.79,
+      NGN: 1650,
+      GHS: 15.5,
+      ZAR: 18.5,
+      KES: 129,
+      EGP: 49,
+    };
+  }
+
   try {
-    const apiKey = process.env.EXPO_PUBLIC_CURRENCY_API_KEY;
-    const apiUrl = process.env.EXPO_PUBLIC_CURRENCY_API_URL;
-    
-    if (!apiKey || !apiUrl) {
-      throw new Error('Currency API configuration missing');
+    const response = await fetch(`${apiUrl}?apikey=${apiKey}&base_currency=USD`, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
     }
 
-    const response = await fetch(`${apiUrl}?apikey=${apiKey}&base_currency=USD`);
     const data = await response.json();
 
     if (!data.data) {
-      throw new Error('Invalid API response');
+      throw new Error('Invalid API response format');
     }
 
     cachedRates = data.data;
     lastFetchTime = now;
     
-    console.log('[Currency] Rates fetched successfully');
+    console.log('[Currency] Live rates fetched successfully');
     return cachedRates as CurrencyRates;
   } catch (error) {
-    console.error('[Currency] Error fetching rates:', error);
+    console.warn('[Currency] Unable to fetch live rates, using fallback rates:', error instanceof Error ? error.message : 'Unknown error');
     
     return {
       USD: 1,
