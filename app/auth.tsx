@@ -94,11 +94,20 @@ export default function AuthScreen() {
 
       router.replace('/(tabs)' as any);
     } catch (error: any) {
-      console.error('[Auth] Error:', error);
-      console.error('[Auth] Error type:', typeof error);
-      console.error('[Auth] Error keys:', error ? Object.keys(error) : 'null');
+      console.error('[Auth] Error occurred:', error);
+      console.error('[Auth] Error message:', error?.message);
+      console.error('[Auth] Error name:', error?.name);
+      console.error('[Auth] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       
-      let errorMessage = error?.message || 'Something went wrong. Please try Guest Mode.';
+      let errorMessage = 'Something went wrong. Please try Guest Mode.';
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.data?.message) {
+        errorMessage = error.data.message;
+      }
       
       const msg = errorMessage.toLowerCase();
       const isBackendError = msg.includes('service') || 
