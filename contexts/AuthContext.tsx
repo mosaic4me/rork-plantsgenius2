@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trpcClient } from '@/lib/trpc';
 import { signInWithGoogle, signInWithApple, type OAuthUser } from '@/utils/oauthHelpers';
+import { checkBackendHealth } from '@/utils/backendHealthCheck';
 
 interface Profile {
   id: string;
@@ -150,6 +151,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       console.log('[SignUp] Attempting sign up for:', trimmedEmail);
       
+      console.log('[SignUp] Checking backend health...');
+      const healthCheck = await checkBackendHealth();
+      if (!healthCheck.isAvailable) {
+        console.error('[SignUp] Backend is not available:', healthCheck.message);
+        throw new Error('BACKEND_NOT_AVAILABLE');
+      }
+      console.log('[SignUp] Backend is healthy, proceeding with signup');
+      
       const result = await trpcClient.auth.signUp.mutate({ 
         email: trimmedEmail, 
         password, 
@@ -213,6 +222,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const trimmedEmail = email.trim().toLowerCase();
       
       console.log('[SignIn] Attempting sign in for:', trimmedEmail);
+      
+      console.log('[SignIn] Checking backend health...');
+      const healthCheck = await checkBackendHealth();
+      if (!healthCheck.isAvailable) {
+        console.error('[SignIn] Backend is not available:', healthCheck.message);
+        throw new Error('BACKEND_NOT_AVAILABLE');
+      }
+      console.log('[SignIn] Backend is healthy, proceeding with signin');
       
       const result = await trpcClient.auth.signIn.mutate({ 
         email: trimmedEmail, 

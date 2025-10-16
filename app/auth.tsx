@@ -359,6 +359,14 @@ export default function AuthScreen() {
           >
             <Text style={styles.guestButtonText}>Continue as Guest</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.diagnosticButton}
+            onPress={() => router.push('/backend-diagnostic' as any)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.diagnosticButtonText}>Backend Diagnostics</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -541,5 +549,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: Colors.gray.dark,
+  },
+  diagnosticButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  diagnosticButtonText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: Colors.gray.medium,
+    textDecorationLine: 'underline' as const,
   },
 });
