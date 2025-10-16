@@ -101,15 +101,6 @@ export default function SettingsScreen() {
               </Text>
             </View>
           </View>
-
-          {!hasActiveSubscription() && (
-            <TouchableOpacity
-              style={[styles.button, styles.buttonPrimary]}
-              onPress={() => router.push('/(tabs)/profile' as any)}
-            >
-              <Text style={styles.buttonText}>Upgrade to Premium</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={styles.section}>

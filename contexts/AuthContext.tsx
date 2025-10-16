@@ -22,6 +22,7 @@ interface User {
   id: string;
   email: string;
   fullName: string;
+  authProvider?: 'email' | 'google' | 'apple';
 }
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
@@ -32,6 +33,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [dailyScansRemaining, setDailyScansRemaining] = useState(2);
   const [isGuest, setIsGuest] = useState(false);
   const [lastResetDate, setLastResetDate] = useState<string | null>(null);
+  const [authProvider, setAuthProvider] = useState<'email' | 'google' | 'apple' | null>(null);
+  const [earnedScans, setEarnedScans] = useState(0);
 
   const loadProfile = useCallback(async (userId: string) => {
     try {

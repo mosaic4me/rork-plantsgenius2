@@ -257,7 +257,7 @@ export default function HomeScreen() {
             <DiscoverCard
               icon={<Users size={28} color={Colors.accent} />}
               title="Community"
-              description="Connect with plant lovers"
+              description="Connect with plant lovers (Coming Soon)"
               color="#FFF3E0"
             />
           </View>

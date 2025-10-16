@@ -7,6 +7,12 @@ import { Platform } from "react-native";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    const url = process.env.EXPO_PUBLIC_API_BASE_URL;
+    console.log('[tRPC] Using production API:', url);
+    return url.replace('/api', '');
+  }
+
   if (process.env.EXPO_PUBLIC_RORK_API_BASE_URL) {
     const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
     console.log('[tRPC] Using EXPO_PUBLIC_RORK_API_BASE_URL:', url);
@@ -26,7 +32,7 @@ const getBaseUrl = () => {
   }
 
   console.warn('[tRPC] No base URL configured - backend features will be unavailable');
-  console.warn('[tRPC] Please set EXPO_PUBLIC_RORK_API_BASE_URL or use Guest Mode');
+  console.warn('[tRPC] Please set EXPO_PUBLIC_API_BASE_URL or use Guest Mode');
   return null;
 };
 

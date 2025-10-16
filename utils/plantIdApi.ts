@@ -117,8 +117,8 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
   }
 }
 
-const PLANTNET_API_KEY = '2b100he5fPRI5nc3c0vQShFT1u';
-const PLANTNET_API_URL = 'https://my-api.plantnet.org/v2/identify/all';
+const PLANTNET_API_KEY = process.env.EXPO_PUBLIC_PLANTNET_API_KEY || '2b100he5fPRI5nc3c0vQShFT1u';
+const PLANTNET_API_URL = process.env.EXPO_PUBLIC_PLANTNET_API_URL || 'https://my-api.plantnet.org/v2/identify/all';
 
 export async function identifyPlant(imageUri: string): Promise<PlantIdentification> {
   try {

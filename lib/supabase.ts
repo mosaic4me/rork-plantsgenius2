@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
-const supabaseUrl = 'https://jimecvkbijithiphzncv.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbWVjdmtiaWppdGhpcGh6bmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0OTI2MzksImV4cCI6MjA3NTA2ODYzOX0._RvetTXWX1UD1pHIVbWDFGcfAHolU1GWV3xqS4u6_Iw';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://jimecvkbijithiphzncv.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbWVjdmtiaWppdGhpcGh6bmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk0OTI2MzksImV4cCI6MjA3NTA2ODYzOX0._RvetTXWX1UD1pHIVbWDFGcfAHolU1GWV3xqS4u6_Iw';
 
 const redirectUrl = Platform.select({
   web: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : 'http://localhost:8081/auth/callback',
