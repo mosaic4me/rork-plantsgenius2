@@ -181,14 +181,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       if (error?.message) {
         const msg = error.message;
         
-        if (msg.includes('backend') || 
+        if (msg === 'BACKEND_NOT_AVAILABLE' || msg === 'BACKEND_NOT_CONFIGURED' || msg === 'BACKEND_TIMEOUT' || msg === 'BACKEND_NETWORK_ERROR' || msg === 'BACKEND_ERROR') {
+          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
+        } else if (msg.includes('backend') || 
             msg.includes('not available') || 
             msg.includes('not deployed') ||
             msg.includes('cannot connect') ||
             msg.includes('network') ||
             msg.includes('timeout') ||
             msg.toLowerCase().includes('guest mode')) {
-          errorMessage = 'The authentication service is currently unavailable. The backend server may not be deployed yet.';
+          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
         } else if (msg.toLowerCase().includes('already exists')) {
           errorMessage = 'This email is already registered. Please sign in or use a different email.';
         } else if (msg.toLowerCase().includes('invalid email')) {
@@ -196,7 +198,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         } else if (msg.toLowerCase().includes('password must be')) {
           errorMessage = error.message;
         } else if (msg.toLowerCase().includes('mongodb') || msg.toLowerCase().includes('database')) {
-          errorMessage = 'Database service is unavailable.';
+          errorMessage = 'Database service is unavailable. Please try again later.';
         } else {
           errorMessage = msg;
         }
@@ -242,20 +244,22 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       if (error?.message) {
         const msg = error.message;
         
-        if (msg.includes('backend') || 
+        if (msg === 'BACKEND_NOT_AVAILABLE' || msg === 'BACKEND_NOT_CONFIGURED' || msg === 'BACKEND_TIMEOUT' || msg === 'BACKEND_NETWORK_ERROR' || msg === 'BACKEND_ERROR') {
+          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
+        } else if (msg.includes('backend') || 
             msg.includes('not available') || 
             msg.includes('not deployed') ||
             msg.includes('cannot connect') ||
             msg.includes('network') ||
             msg.includes('timeout') ||
             msg.toLowerCase().includes('guest mode')) {
-          errorMessage = 'The authentication service is currently unavailable. The backend server may not be deployed yet.';
+          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
         } else if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('invalid email or password')) {
           errorMessage = 'Invalid email or password. Please try again.';
         } else if (msg.toLowerCase().includes('user not found')) {
           errorMessage = 'No account found with this email. Please sign up first.';
         } else if (msg.toLowerCase().includes('mongodb') || msg.toLowerCase().includes('database')) {
-          errorMessage = 'Database service is unavailable.';
+          errorMessage = 'Database service is unavailable. Please try again later.';
         } else {
           errorMessage = msg;
         }
@@ -414,9 +418,34 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
     } catch (error: any) {
       console.error(`[OAuth] ${provider} sign in error:`, error);
+      console.error('[Auth] Error message:', error?.message);
+      console.error('[Auth] Error name:', error?.name);
+      console.error('[Auth] Full error:', JSON.stringify(error, null, 2));
+      
+      let errorMessage = `Failed to sign in with ${provider}. Please try again.`;
+      
+      if (error?.message) {
+        const msg = error.message;
+        
+        if (msg === 'BACKEND_NOT_AVAILABLE' || msg === 'BACKEND_NOT_CONFIGURED' || msg === 'BACKEND_TIMEOUT' || msg === 'BACKEND_NETWORK_ERROR' || msg === 'BACKEND_ERROR') {
+          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
+        } else if (msg.includes('backend') || 
+            msg.includes('not available') || 
+            msg.includes('not deployed') ||
+            msg.includes('cannot connect') ||
+            msg.includes('network') ||
+            msg.includes('timeout')) {
+          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
+        } else if (msg.toLowerCase().includes('user cancelled') || msg.toLowerCase().includes('cancelled')) {
+          return { data: null, error: null };
+        } else {
+          errorMessage = msg;
+        }
+      }
+      
       return { 
         data: null, 
-        error: { message: error.message || `Failed to sign in with ${provider}` } 
+        error: { message: errorMessage } 
       };
     }
   }, [loadProfile, loadSubscription, loadDailyScans]);

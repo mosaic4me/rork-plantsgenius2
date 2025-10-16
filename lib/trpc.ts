@@ -60,31 +60,41 @@ export const trpcClient = trpc.createClient({
           clearTimeout(timeoutId);
           
           console.log('[tRPC] Response status:', response.status);
+          console.log('[tRPC] Response ok:', response.ok);
           
           if (!response.ok) {
             const contentType = response.headers.get('content-type');
+            console.log('[tRPC] Content-Type:', contentType);
             let responseText = '';
             
             try {
               responseText = await response.text();
+              console.log('[tRPC] Response body:', responseText.substring(0, 500));
             } catch (_e) {
               console.error('[tRPC] Could not read response body');
             }
             
             if (response.status === 404) {
-              console.warn('[tRPC] Backend endpoint not found - using fallback');
-              console.warn('[tRPC] URL attempted:', url);
-              console.warn('[tRPC] Response:', responseText);
+              console.error('[tRPC] ❌ 404 Backend endpoint not found');
+              console.error('[tRPC] URL attempted:', url);
+              console.error('[tRPC] Expected backend at:', baseUrl);
+              console.error('[tRPC] Response:', responseText);
+              console.error('[tRPC] Please verify:');
+              console.error('[tRPC] 1. Backend is deployed at', baseUrl);
+              console.error('[tRPC] 2. EXPO_PUBLIC_API_BASE_URL is set correctly in .env');
+              console.error('[tRPC] 3. Backend routes are configured correctly');
               throw new Error('BACKEND_NOT_AVAILABLE');
             }
             
             if (response.status === 500) {
-              console.warn('[tRPC] Server error - using fallback');
+              console.error('[tRPC] ❌ 500 Server error');
+              console.error('[tRPC] Response:', responseText);
               throw new Error('BACKEND_ERROR');
             }
             
             if (contentType?.includes('text/html')) {
-              console.warn('[tRPC] Received HTML - using fallback');
+              console.error('[tRPC] ❌ Received HTML instead of JSON');
+              console.error('[tRPC] This usually means the backend endpoint doesn\'t exist');
               throw new Error('BACKEND_NOT_AVAILABLE');
             }
           }
