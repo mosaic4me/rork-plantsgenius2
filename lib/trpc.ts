@@ -28,9 +28,8 @@ const getBaseUrl = () => {
 
 const baseUrl = getBaseUrl();
 
-console.log('[tRPC] Final tRPC endpoint:', `${baseUrl}/api/trpc`);
-console.log('[tRPC] Backend status: READY');
-console.log('[tRPC] Authentication and cloud features: AVAILABLE');
+console.log('[tRPC] 📡 Final tRPC endpoint:', `${baseUrl}/api/trpc`);
+console.log('[tRPC] 🔄 Will attempt backend, fallback to direct API if unavailable');
 
 export const trpcClient = trpc.createClient({
   links: [
@@ -73,26 +72,20 @@ export const trpcClient = trpc.createClient({
             }
             
             if (response.status === 404) {
-              console.error('[tRPC] 404 Error - endpoint not found:', url);
-              console.error('[tRPC] Response body:', responseText);
-              console.error('[tRPC] The backend is not deployed or the endpoint structure is different');
-              console.error('[tRPC] Expected endpoint: https://api.plantsgenius.site/api/trpc');
-              console.error('[tRPC] Possible issues:');
-              console.error('[tRPC]   1. Backend not deployed at https://api.plantsgenius.site');
-              console.error('[tRPC]   2. Backend has different routing structure');
-              console.error('[tRPC]   3. CORS or proxy configuration issues');
-              throw new Error('The backend API is not available at this time. The server may not be deployed yet. Please use Guest Mode to explore the app with limited features.');
+              console.warn('[tRPC] Backend endpoint not found - using fallback');
+              console.warn('[tRPC] URL attempted:', url);
+              console.warn('[tRPC] Response:', responseText);
+              throw new Error('BACKEND_NOT_AVAILABLE');
             }
             
             if (response.status === 500) {
-              console.error('[tRPC] 500 Error - server error');
-              throw new Error('BACKEND_ERROR: Server encountered an error. Please try again later or use Guest Mode.');
+              console.warn('[tRPC] Server error - using fallback');
+              throw new Error('BACKEND_ERROR');
             }
             
             if (contentType?.includes('text/html')) {
-              console.error('[tRPC] Received HTML instead of JSON - wrong endpoint or routing issue');
-              console.error('[tRPC] This usually means the backend is not properly deployed');
-              throw new Error('BACKEND_NOT_AVAILABLE: Invalid response from server. The backend may not be deployed correctly. Please use Guest Mode.');
+              console.warn('[tRPC] Received HTML - using fallback');
+              throw new Error('BACKEND_NOT_AVAILABLE');
             }
           }
 
@@ -101,13 +94,13 @@ export const trpcClient = trpc.createClient({
           console.error('[tRPC] Fetch error:', error.message);
           
           if (error.name === 'AbortError') {
-            throw new Error('BACKEND_TIMEOUT: Request timed out after 15 seconds. Please check your internet connection.');
+            console.warn('[tRPC] Request timeout - using fallback');
+            throw new Error('BACKEND_TIMEOUT');
           }
           
           if (error.message?.includes('Failed to fetch') || error.message?.includes('Network request failed')) {
-            console.error('[tRPC] Network error - cannot reach backend');
-            console.error('[tRPC] This could mean: no internet, backend not deployed, or CORS issues');
-            throw new Error('BACKEND_NETWORK_ERROR: Cannot connect to the authentication service. Please check your internet connection or use Guest Mode.');
+            console.warn('[tRPC] Network error - using fallback');
+            throw new Error('BACKEND_NETWORK_ERROR');
           }
           
           throw error;

@@ -65,7 +65,7 @@ export default function AnalyzingScreen() {
             mimeType,
           });
           
-          console.log('[Analyzing] Backend identification successful');
+          console.log('[Analyzing] ✅ Backend identification successful');
           
           const topResult = backendResult.results[0];
           const species = topResult.species;
@@ -133,12 +133,13 @@ export default function AnalyzingScreen() {
             saved: false,
           };
         } catch (backendError: any) {
-          console.log('[Analyzing] Backend failed, falling back to direct API:', backendError.message);
+          console.log('[Analyzing] ⚠️ Backend unavailable, using direct PlantNet API');
           
           try {
             plantData = await identifyPlant(params.imageUri);
+            console.log('[Analyzing] ✅ Direct API identification successful');
           } catch (directApiError: any) {
-            console.error('[Analyzing] Direct API also failed:', directApiError.message);
+            console.error('[Analyzing] ❌ Direct API failed:', directApiError.message);
             throw directApiError;
           }
         }
