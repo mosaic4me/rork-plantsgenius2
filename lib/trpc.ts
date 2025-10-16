@@ -20,10 +20,10 @@ const getBaseUrl = () => {
   }
 
   console.warn('[tRPC] ⚠️ EXPO_PUBLIC_API_BASE_URL not configured in .env file');
-  console.warn('[tRPC] ⚠️ Expected: EXPO_PUBLIC_API_BASE_URL=https://api.plantsgenius.site');
+  console.warn('[tRPC] ⚠️ Expected: EXPO_PUBLIC_API_BASE_URL=https://api.plantsgenius.site/app');
   console.warn('[tRPC] ⚠️ App will run in offline/guest mode with limited features');
   
-  return 'https://api.plantsgenius.site';
+  return 'https://api.plantsgenius.site/app';
 };
 
 const baseUrl = getBaseUrl();
@@ -39,7 +39,7 @@ export const trpcClient = trpc.createClient({
       fetch: async (url, options) => {
         if (!baseUrl) {
           console.log('[tRPC] Backend not configured - request blocked');
-          throw new Error('BACKEND_NOT_CONFIGURED: Please set EXPO_PUBLIC_API_BASE_URL to https://api.plantsgenius.site or use Guest Mode');
+          throw new Error('BACKEND_NOT_CONFIGURED: Please set EXPO_PUBLIC_API_BASE_URL to https://api.plantsgenius.site/app or use Guest Mode');
         }
 
         try {

@@ -294,7 +294,7 @@ export default function AuthScreen() {
 
           <View style={styles.oauthContainer}>
             <TouchableOpacity
-              style={[styles.oauthButton, styles.googleButton, (loading || oauthLoading) && styles.buttonDisabled, showAppleSignIn && styles.oauthButtonFlex]}
+              style={[styles.oauthButton, styles.googleButton, (loading || oauthLoading) && styles.buttonDisabled, showAppleSignIn && styles.oauthButtonHalf]}
               onPress={() => handleOAuthSignIn('google')}
               disabled={loading || oauthLoading}
               activeOpacity={0.8}
@@ -302,19 +302,17 @@ export default function AuthScreen() {
               {oauthLoading ? (
                 <ActivityIndicator color={Colors.black} />
               ) : (
-                <>
-                  <Image
-                    source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg' }}
-                    style={styles.googleIcon}
-                  />
-                  {!showAppleSignIn && <Text style={styles.oauthButtonText}>Continue with Google</Text>}
-                </>
+                <Image
+                  source={{ uri: 'https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png' }}
+                  style={styles.googleIcon}
+                  resizeMode="contain"
+                />
               )}
             </TouchableOpacity>
 
             {showAppleSignIn && (
               <TouchableOpacity
-                style={[styles.oauthButton, styles.appleButton, styles.oauthButtonFlex, (loading || oauthLoading) && styles.buttonDisabled]}
+                style={[styles.oauthButton, styles.appleButton, styles.oauthButtonHalf, (loading || oauthLoading) && styles.buttonDisabled]}
                 onPress={() => handleOAuthSignIn('apple')}
                 disabled={loading || oauthLoading}
                 activeOpacity={0.8}
@@ -322,9 +320,11 @@ export default function AuthScreen() {
                 {oauthLoading ? (
                   <ActivityIndicator color={Colors.white} />
                 ) : (
-                  <>
-                    <Text style={styles.appleIcon}></Text>
-                  </>
+                  <Image
+                    source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' }}
+                    style={styles.appleIcon}
+                    resizeMode="contain"
+                  />
                 )}
               </TouchableOpacity>
             )}
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   },
   oauthContainer: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 1,
     width: '100%',
   },
   divider: {
@@ -469,26 +469,29 @@ const styles = StyleSheet.create({
   },
   oauthButton: {
     flexDirection: 'row',
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
     gap: 12,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  oauthButtonFlex: {
+  oauthButtonHalf: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   googleButton: {
     backgroundColor: Colors.white,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: Colors.gray.light,
   },
   googleIcon: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
   },
   oauthButtonText: {
     fontSize: 16,
@@ -500,8 +503,9 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   appleIcon: {
-    fontSize: 24,
-    color: Colors.white,
+    width: 28,
+    height: 28,
+    tintColor: Colors.white,
   },
   appleButtonText: {
     fontSize: 16,

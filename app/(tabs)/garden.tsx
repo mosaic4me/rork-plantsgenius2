@@ -198,7 +198,7 @@ export default function GardenScreen() {
                           <Droplets size={18} color={Colors.white} />
                         </View>
                         <Text style={styles.waterButtonText}>
-                          {needsWater ? 'Water Now' : 'Marked as Watered'}
+                          {plant.lastWatered ? 'Marked as Watered' : 'Mark as Watered'}
                         </Text>
                       </TouchableOpacity>
                       {plant.wateringHistory && plant.wateringHistory.length > 0 && (
@@ -492,8 +492,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 12.5,
+    paddingHorizontal: 16.5,
     borderRadius: 12,
     backgroundColor: Colors.primary,
     shadowColor: Colors.primary,
@@ -525,8 +525,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   historyButton: {
-    width: 48,
-    height: 48,
+    width: 48.5,
+    height: 48.5,
     borderRadius: 12,
     backgroundColor: Colors.white,
     borderWidth: 2,

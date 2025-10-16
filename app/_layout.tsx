@@ -94,11 +94,11 @@ export default function RootLayout() {
                       style={{ borderLeftColor: '#7CB342' }}
                       contentContainerStyle={{ paddingHorizontal: 15 }}
                       text1Style={{
-                        fontSize: 17,
+                        fontSize: 14,
                         fontWeight: '600',
                       }}
                       text2Style={{
-                        fontSize: 15,
+                        fontSize: 12,
                         fontWeight: '400',
                       }}
                       text2NumberOfLines={0}
@@ -110,11 +110,11 @@ export default function RootLayout() {
                       style={{ borderLeftColor: '#F44336' }}
                       contentContainerStyle={{ paddingHorizontal: 15 }}
                       text1Style={{
-                        fontSize: 17,
+                        fontSize: 14,
                         fontWeight: '600',
                       }}
                       text2Style={{
-                        fontSize: 15,
+                        fontSize: 12,
                         fontWeight: '400',
                       }}
                       text2NumberOfLines={0}
@@ -126,11 +126,11 @@ export default function RootLayout() {
                       style={{ borderLeftColor: '#2196F3' }}
                       contentContainerStyle={{ paddingHorizontal: 15 }}
                       text1Style={{
-                        fontSize: 17,
+                        fontSize: 14,
                         fontWeight: '600',
                       }}
                       text2Style={{
-                        fontSize: 15,
+                        fontSize: 12,
                         fontWeight: '400',
                       }}
                       text2NumberOfLines={0}

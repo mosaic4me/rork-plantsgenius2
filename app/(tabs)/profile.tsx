@@ -16,6 +16,7 @@ import Toast from 'react-native-toast-message';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import PaystackPayment from '@/components/PaystackPayment';
+import RewardedAd from '@/components/RewardedAd';
 import { getDaysRemaining, getScanLimits } from '@/utils/paymentHelpers';
 import { convertCurrency, formatCurrency, getUserLocation, isWestAfricanCountry } from '@/utils/currencyConverter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,9 +25,10 @@ import Colors from '@/constants/colors';
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { stats } = useApp();
-  const { profile, subscription, signOut, dailyScansRemaining, deleteAccount, isGuest } = useAuth();
+  const { profile, subscription, signOut, dailyScansRemaining, deleteAccount, isGuest, incrementDailyScan } = useAuth();
   const [showPayment, setShowPayment] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showRewardedAd, setShowRewardedAd] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ type: 'basic' | 'premium'; cycle: 'monthly' | 'yearly' }>({ type: 'basic', cycle: 'monthly' });
   const [prices, setPrices] = useState({
     basicMonthly: '$2.99',
@@ -107,9 +109,9 @@ export default function ProfileScreen() {
           text2: 'You have been successfully signed out',
           position: 'top',
         });
-        if (isGuest) {
+        setTimeout(() => {
           router.replace('/auth' as any);
-        }
+        }, 500);
         break;
       case 'delete':
         setShowDeleteModal(true);
@@ -204,25 +206,50 @@ export default function ProfileScreen() {
               </Text>
             </View>
           ) : (
-            <Text style={styles.scansRemaining}>
-              {dailyScansRemaining > 0 ? 
-                `${dailyScansRemaining} free scans remaining today` : 
-                'You have exhausted your free scans'
-              }
-            </Text>
+            <>
+              <Text style={styles.scansRemaining}>
+                {dailyScansRemaining > 0 ? 
+                  `${dailyScansRemaining} free scans remaining today` : 
+                  'You have exhausted your free scans'
+                }
+              </Text>
+              {dailyScansRemaining === 0 && (
+                <TouchableOpacity
+                  style={styles.earnScanButton}
+                  onPress={() => {
+                    if (Platform.OS !== 'web') {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    }
+                    setShowRewardedAd(true);
+                  }}
+                >
+                  <Text style={styles.earnScanButtonText}>Earn a Free Scan</Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
-        <View style={styles.statsContainer}>
+        <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Scan size={24} color={Colors.primary} />
             <Text style={styles.statValue}>{stats.totalScans}</Text>
-            <Text style={styles.statLabel}>Plants Scanned</Text>
+            <Text style={styles.statLabel}>Total Scans</Text>
           </View>
           <View style={styles.statCard}>
             <Leaf size={24} color={Colors.accent} />
             <Text style={styles.statValue}>{stats.plantsInGarden}</Text>
             <Text style={styles.statLabel}>In Garden</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Scan size={24} color={Colors.warning} />
+            <Text style={styles.statValue}>{2 - dailyScansRemaining}</Text>
+            <Text style={styles.statLabel}>Scans Today</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Scan size={24} color={Colors.primary} />
+            <Text style={styles.statValue}>{stats.totalScans}</Text>
+            <Text style={styles.statLabel}>This Month</Text>
           </View>
         </View>
 
@@ -383,6 +410,21 @@ export default function ProfileScreen() {
         billingCycle={selectedPlan.cycle}
       />
 
+      <RewardedAd
+        visible={showRewardedAd}
+        onClose={() => setShowRewardedAd(false)}
+        onReward={async () => {
+          await incrementDailyScan();
+          Toast.show({
+            type: 'success',
+            text1: 'Reward Earned!',
+            text2: 'You have earned 1 additional free scan',
+            position: 'top',
+          });
+        }}
+        duration={60}
+      />
+
       <Modal
         visible={showDeleteModal}
         transparent
@@ -534,17 +576,35 @@ const styles = StyleSheet.create({
     color: Colors.gray.dark,
     lineHeight: 20,
   },
-  statsContainer: {
+  earnScanButton: {
+    marginTop: 12,
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: Colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  earnScanButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.white,
+  },
+  statsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 24,
-    gap: 16,
+    gap: 12,
     marginBottom: 24,
   },
   statCard: {
-    flex: 1,
+    width: '48%',
     backgroundColor: Colors.white,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
@@ -553,14 +613,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statValue: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700' as const,
     color: Colors.black,
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: 10,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.gray.dark,
     textAlign: 'center',
   },
