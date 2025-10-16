@@ -180,12 +180,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       if (error?.message) {
         const msg = error.message;
-        if (msg === 'BACKEND_NOT_CONFIGURED' || 
-            msg === 'BACKEND_NOT_FOUND' || 
-            msg === 'BACKEND_ERROR' ||
-            msg === 'BACKEND_TIMEOUT' ||
-            msg === 'BACKEND_NETWORK_ERROR') {
-          errorMessage = 'Authentication service is currently unavailable. Please use Guest Mode to explore the app.';
+        
+        if (msg.includes('BACKEND_NOT_CONFIGURED') || 
+            msg.includes('BACKEND_NOT_FOUND') || 
+            msg.includes('BACKEND_ERROR') ||
+            msg.includes('BACKEND_TIMEOUT') ||
+            msg.includes('BACKEND_NETWORK_ERROR')) {
+          errorMessage = msg.split(':')[1]?.trim() || 'Authentication service is currently unavailable. Please use Guest Mode to explore the app.';
         } else if (msg.toLowerCase().includes('already exists')) {
           errorMessage = 'This email is already registered. Please sign in or use a different email.';
         } else if (msg.toLowerCase().includes('invalid email')) {
@@ -238,12 +239,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       if (error?.message) {
         const msg = error.message;
-        if (msg === 'BACKEND_NOT_CONFIGURED' || 
-            msg === 'BACKEND_NOT_FOUND' || 
-            msg === 'BACKEND_ERROR' ||
-            msg === 'BACKEND_TIMEOUT' ||
-            msg === 'BACKEND_NETWORK_ERROR') {
-          errorMessage = 'Authentication service is currently unavailable. Please use Guest Mode.';
+        
+        if (msg.includes('BACKEND_NOT_CONFIGURED') || 
+            msg.includes('BACKEND_NOT_FOUND') || 
+            msg.includes('BACKEND_ERROR') ||
+            msg.includes('BACKEND_TIMEOUT') ||
+            msg.includes('BACKEND_NETWORK_ERROR')) {
+          errorMessage = msg.split(':')[1]?.trim() || 'Authentication service is currently unavailable. Please use Guest Mode.';
         } else if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('invalid email or password')) {
           errorMessage = 'Invalid email or password. Please try again.';
         } else if (msg.toLowerCase().includes('user not found')) {
