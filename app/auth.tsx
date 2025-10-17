@@ -61,7 +61,7 @@ export default function AuthScreen() {
       }
 
       if (isSignUp) {
-        const { error } = await signUp(trimmedEmail, trimmedPassword, trimmedFullName);
+        const { data, error } = await signUp(trimmedEmail, trimmedPassword, trimmedFullName);
         if (error) {
           if (error.message.includes('already exists')) {
             Toast.show({
@@ -77,25 +77,37 @@ export default function AuthScreen() {
           return;
         }
 
-        Toast.show({
-          type: 'success',
-          text1: 'Account Created!',
-          text2: 'Welcome to PlantsGenius',
-          position: 'top',
-        });
+        if (data) {
+          Toast.show({
+            type: 'success',
+            text1: '🎉 Account Created Successfully!',
+            text2: `Welcome ${data.fullName}! You're now logged in.`,
+            position: 'top',
+            visibilityTime: 3000,
+          });
+          
+          setTimeout(() => {
+            router.replace('/(tabs)' as any);
+          }, 500);
+        }
       } else {
-        const { error } = await signIn(trimmedEmail, trimmedPassword);
+        const { data, error } = await signIn(trimmedEmail, trimmedPassword);
         if (error) throw error;
 
-        Toast.show({
-          type: 'success',
-          text1: 'Welcome Back!',
-          text2: 'Successfully signed in',
-          position: 'top',
-        });
+        if (data) {
+          Toast.show({
+            type: 'success',
+            text1: 'Welcome Back!',
+            text2: `Good to see you, ${data.fullName}!`,
+            position: 'top',
+            visibilityTime: 2000,
+          });
+          
+          setTimeout(() => {
+            router.replace('/(tabs)' as any);
+          }, 500);
+        }
       }
-
-      router.replace('/(tabs)' as any);
     } catch (error: any) {
       console.error('[Auth] Error occurred:', error);
       console.error('[Auth] Error message:', error?.message);

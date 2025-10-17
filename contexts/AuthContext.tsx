@@ -1,10 +1,11 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { trpcClient } from '@/lib/trpc';
 import { signInWithGoogle, signInWithApple, type OAuthUser } from '@/utils/oauthHelpers';
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site').replace(/\/$/, '');
+
+const TOKEN_EXPIRY_DAYS = 30;
 
 interface Profile {
   id: string;
@@ -37,132 +38,102 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [isGuest, setIsGuest] = useState(false);
   const [lastResetDate, setLastResetDate] = useState<string | null>(null);
   const [authProvider, setAuthProvider] = useState<'email' | 'google' | 'apple' | null>(null);
-  const [earnedScans, setEarnedScans] = useState(0);
   const [adClicksToday, setAdClicksToday] = useState(0);
-  const [lastAdClickDate, setLastAdClickDate] = useState<string | null>(null);
 
-  const [profileCache, setProfileCache] = useState<Map<string, { data: Profile; timestamp: number }>>(new Map());
-  const [isLoadingProfile, setIsLoadingProfile] = useState<Set<string>>(new Set());
-  const CACHE_DURATION = 60000;
-  const MAX_RETRY_DELAY = 30000;
-
-  const loadProfile = useCallback(async (userId: string, retryCount = 0) => {
-    const cached = profileCache.get(userId);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      setProfile(cached.data);
-      return;
+  const getAuthToken = useCallback(async () => {
+    const token = await AsyncStorage.getItem('authToken');
+    const tokenExpiry = await AsyncStorage.getItem('tokenExpiry');
+    
+    if (token && tokenExpiry) {
+      const expiryDate = new Date(tokenExpiry);
+      if (new Date() < expiryDate) {
+        return token;
+      }
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('tokenExpiry');
     }
+    return null;
+  }, []);
 
-    if (isLoadingProfile.has(userId)) {
-      return;
-    }
-
+  const loadProfile = useCallback(async (userId: string) => {
     try {
-      setIsLoadingProfile(prev => new Set(prev).add(userId));
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const user = await trpcClient.auth.getUser.query({ userId });
-      if (user) {
+      const token = await getAuthToken();
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/user/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
         const profileData: Profile = {
-          id: user.id,
-          email: user.email,
-          full_name: user.fullName,
-          avatar_url: null,
+          id: userData.id,
+          email: userData.email,
+          full_name: userData.fullName || userData.full_name,
+          avatar_url: userData.avatar_url || null,
         };
         setProfile(profileData);
-        setProfileCache(prev => new Map(prev).set(userId, { data: profileData, timestamp: Date.now() }));
       }
-    } catch (error: any) {
-      if (error?.message?.includes('RATE_LIMITED')) {
-        const delay = Math.min(2000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
-        console.warn(`[Auth] Rate limited - will retry profile load in ${delay}ms`);
-        setTimeout(() => loadProfile(userId, retryCount + 1), delay);
-        return;
-      }
-      console.error('Error loading profile:', error);
-    } finally {
-      setIsLoadingProfile(prev => {
-        const next = new Set(prev);
-        next.delete(userId);
-        return next;
-      });
+    } catch (error) {
+      console.error('[Auth] Error loading profile:', error);
     }
-  }, [profileCache, isLoadingProfile]);
+  }, [getAuthToken]);
 
-  const [subscriptionCache, setSubscriptionCache] = useState<Map<string, { data: Subscription; timestamp: number }>>(new Map());
-  const [isLoadingSubscription, setIsLoadingSubscription] = useState<Set<string>>(new Set());
-
-  const loadSubscription = useCallback(async (userId: string, retryCount = 0) => {
-    const cached = subscriptionCache.get(userId);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      setSubscription(cached.data);
-      return;
-    }
-
-    if (isLoadingSubscription.has(userId)) {
-      return;
-    }
-
+  const loadSubscription = useCallback(async (userId: string) => {
     try {
-      setIsLoadingSubscription(prev => new Set(prev).add(userId));
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const sub = await trpcClient.subscription.getSubscription.query({ userId });
-      if (sub) {
-        const subData: Subscription = {
-          id: sub.id,
-          plan_type: sub.planType,
-          status: sub.status,
-          start_date: sub.startDate,
-          end_date: sub.endDate,
-        };
-        setSubscription(subData);
-        setSubscriptionCache(prev => new Map(prev).set(userId, { data: subData, timestamp: Date.now() }));
-      }
-    } catch (error: any) {
-      if (error?.message?.includes('RATE_LIMITED')) {
-        const delay = Math.min(2000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
-        console.warn(`[Auth] Rate limited - will retry subscription load in ${delay}ms`);
-        setTimeout(() => loadSubscription(userId, retryCount + 1), delay);
-        return;
-      }
-      console.error('Error loading subscription:', error);
-    } finally {
-      setIsLoadingSubscription(prev => {
-        const next = new Set(prev);
-        next.delete(userId);
-        return next;
+      const token = await getAuthToken();
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/subscription/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
+
+      if (response.ok) {
+        const sub = await response.json();
+        if (sub) {
+          const subData: Subscription = {
+            id: sub.id,
+            plan_type: sub.plan_type || sub.planType,
+            status: sub.status,
+            start_date: sub.start_date || sub.startDate,
+            end_date: sub.end_date || sub.endDate,
+          };
+          setSubscription(subData);
+        }
+      }
+    } catch (error) {
+      console.error('[Auth] Error loading subscription:', error);
     }
-  }, [subscriptionCache, isLoadingSubscription]);
+  }, [getAuthToken]);
 
-  const [scansCache, setScansCache] = useState<Map<string, { scansRemaining: number; timestamp: number }>>(new Map());
-  const [isLoadingScans, setIsLoadingScans] = useState<Set<string>>(new Set());
-
-  const loadDailyScans = useCallback(async (userId?: string, retryCount = 0) => {
+  const loadDailyScans = useCallback(async (userId?: string) => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const cacheKey = userId || 'guest';
-      
-      const cached = scansCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        setDailyScansRemaining(cached.scansRemaining);
-        return;
-      }
-
-      if (isLoadingScans.has(cacheKey)) {
-        return;
-      }
       
       if (userId) {
-        setIsLoadingScans(prev => new Set(prev).add(cacheKey));
-        await new Promise(resolve => setTimeout(resolve, 4000));
-        const result = await trpcClient.scans.getDailyScans.query({ userId, date: today });
-        setDailyScansRemaining(result.scansRemaining);
-        setScansCache(prev => new Map(prev).set(cacheKey, { scansRemaining: result.scansRemaining, timestamp: Date.now() }));
-        setIsLoadingScans(prev => {
-          const next = new Set(prev);
-          next.delete(cacheKey);
-          return next;
+        const token = await getAuthToken();
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/scans/${userId}?date=${today}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
+
+        if (response.ok) {
+          const result = await response.json();
+          setDailyScansRemaining(result.scansRemaining || result.scans_remaining || 2);
+        }
       } else {
         const storedDate = await AsyncStorage.getItem('lastScanResetDate');
         const storedCount = await AsyncStorage.getItem('dailyScanCount');
@@ -178,40 +149,38 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           setLastResetDate(storedDate);
         }
       }
-    } catch (error: any) {
-      if (error?.message?.includes('RATE_LIMITED')) {
-        const delay = Math.min(2000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
-        console.warn(`[Auth] Rate limited - will retry scans load in ${delay}ms`);
-        setTimeout(() => loadDailyScans(userId, retryCount + 1), delay);
-        return;
-      }
-      console.error('Error loading daily scans:', error);
+    } catch (error) {
+      console.error('[Auth] Error loading daily scans:', error);
     }
-  }, [scansCache, isLoadingScans]);
+  }, [getAuthToken]);
 
   useEffect(() => {
     const initAuth = async () => {
       try {
+        const token = await getAuthToken();
+        
         const guestMode = await AsyncStorage.getItem('guestMode');
-        if (guestMode === 'true') {
+        if (guestMode === 'true' && !token) {
           setIsGuest(true);
           await loadDailyScans();
           setLoading(false);
           return;
         }
 
-        const storedUser = await AsyncStorage.getItem('currentUser');
-        if (storedUser) {
-          const userData = JSON.parse(storedUser);
-          setUser(userData);
-          setTimeout(() => loadProfile(userData.id), 2000);
-          setTimeout(() => loadSubscription(userData.id), 5000);
-          setTimeout(() => loadDailyScans(userData.id), 8000);
+        if (token) {
+          const storedUser = await AsyncStorage.getItem('currentUser');
+          if (storedUser) {
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+            loadProfile(userData.id);
+            loadSubscription(userData.id);
+            loadDailyScans(userData.id);
+          }
         } else {
           await loadDailyScans();
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('[Auth] Error initializing auth:', error);
       } finally {
         setLoading(false);
       }
@@ -233,7 +202,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return () => {
       clearInterval(midnightCheckInterval);
     };
-  }, []);
+  }, [getAuthToken, loadProfile, loadSubscription, loadDailyScans, lastResetDate, user]);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     try {
@@ -288,20 +257,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
       
       const result = await response.json();
-      console.log('[SignUp] Success - user created:', result.user.id);
+      console.log('[SignUp] Success - user created:', result.user?.id || result.id);
       
       const userData: User = {
-        id: result.user.id,
-        email: result.user.email,
-        fullName: result.user.fullName,
+        id: result.user?.id || result.id,
+        email: result.user?.email || result.email,
+        fullName: result.user?.fullName || result.fullName || result.user?.full_name || result.full_name,
       };
       
-      await AsyncStorage.setItem('authToken', result.token);
-      setUser(userData);
+      const token = result.token || result.access_token;
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + TOKEN_EXPIRY_DAYS);
+      
+      await AsyncStorage.setItem('authToken', token);
+      await AsyncStorage.setItem('tokenExpiry', expiryDate.toISOString());
       await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-      setTimeout(() => loadProfile(userData.id), 2000);
-      setTimeout(() => loadSubscription(userData.id), 5000);
-      setTimeout(() => loadDailyScans(userData.id), 8000);
+      await AsyncStorage.removeItem('guestMode');
+      
+      setUser(userData);
+      setIsGuest(false);
+      
+      loadProfile(userData.id);
+      loadSubscription(userData.id);
+      loadDailyScans(userData.id);
       
       return { data: userData, error: null };
     } catch (error: any) {
@@ -389,20 +367,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
       
       const result = await response.json();
-      console.log('[SignIn] Success - user authenticated:', result.user.id);
+      console.log('[SignIn] Success - user authenticated:', result.user?.id || result.id);
       
       const userData: User = {
-        id: result.user.id,
-        email: result.user.email,
-        fullName: result.user.fullName,
+        id: result.user?.id || result.id,
+        email: result.user?.email || result.email,
+        fullName: result.user?.fullName || result.fullName || result.user?.full_name || result.full_name,
       };
       
-      await AsyncStorage.setItem('authToken', result.token);
-      setUser(userData);
+      const token = result.token || result.access_token;
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + TOKEN_EXPIRY_DAYS);
+      
+      await AsyncStorage.setItem('authToken', token);
+      await AsyncStorage.setItem('tokenExpiry', expiryDate.toISOString());
       await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-      setTimeout(() => loadProfile(userData.id), 2000);
-      setTimeout(() => loadSubscription(userData.id), 5000);
-      setTimeout(() => loadDailyScans(userData.id), 8000);
+      await AsyncStorage.removeItem('guestMode');
+      
+      setUser(userData);
+      setIsGuest(false);
+      
+      loadProfile(userData.id);
+      loadSubscription(userData.id);
+      loadDailyScans(userData.id);
       
       return { data: userData, error: null };
     } catch (error: any) {
@@ -442,6 +429,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       await AsyncStorage.removeItem('currentUser');
       await AsyncStorage.removeItem('guestMode');
       await AsyncStorage.removeItem('authProvider');
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('tokenExpiry');
       setUser(null);
       setProfile(null);
       setSubscription(null);
@@ -456,17 +445,31 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     if (!user) return { error: 'No user logged in' };
 
     try {
-      await trpcClient.auth.updateUser.mutate({
-        userId: user.id,
-        fullName: updates.full_name || undefined,
+      const token = await getAuthToken();
+      if (!token) return { error: 'Not authenticated' };
+
+      const response = await fetch(`${API_BASE_URL}/api/user/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: updates.full_name,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
       await loadProfile(user.id);
       return { error: null };
     } catch (error: any) {
-      console.error('Error updating profile:', error);
+      console.error('[Auth] Error updating profile:', error);
       return { error };
     }
-  }, [user, loadProfile]);
+  }, [user, loadProfile, getAuthToken]);
 
   const resetPassword = useCallback(async (_email: string) => {
     return { error: null };
@@ -477,8 +480,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const today = new Date().toISOString().split('T')[0];
       
       if (user) {
-        await trpcClient.scans.incrementScan.mutate({ userId: user.id, date: today });
-        await loadDailyScans(user.id);
+        const token = await getAuthToken();
+        if (token) {
+          await fetch(`${API_BASE_URL}/api/scans/${user.id}/increment`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ date: today }),
+          });
+          await loadDailyScans(user.id);
+        }
       } else {
         const storedCount = await AsyncStorage.getItem('dailyScanCount');
         const newCount = parseInt(storedCount || '0', 10) + 1;
@@ -486,9 +499,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         setDailyScansRemaining(Math.max(0, 2 - newCount));
       }
     } catch (error) {
-      console.error('Error incrementing daily scan:', error);
+      console.error('[Auth] Error incrementing daily scan:', error);
     }
-  }, [user, loadDailyScans]);
+  }, [user, loadDailyScans, getAuthToken]);
 
   const addEarnedScan = useCallback(async () => {
     try {
@@ -501,7 +514,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         await AsyncStorage.setItem('lastAdClickDate', today);
         await AsyncStorage.setItem('adClicksToday', '1');
         setAdClicksToday(1);
-        setLastAdClickDate(today);
       } else {
         const clicks = parseInt(storedClicks || '0', 10);
         if (clicks < 2) {
@@ -547,17 +559,33 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     if (!user) return { error: 'No user logged in' };
 
     try {
-      await trpcClient.auth.deleteUser.mutate({ userId: user.id });
+      const token = await getAuthToken();
+      if (!token) return { error: 'Not authenticated' };
+
+      const response = await fetch(`${API_BASE_URL}/api/user/${user.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete account');
+      }
+
       await AsyncStorage.removeItem('currentUser');
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('tokenExpiry');
       setUser(null);
       setProfile(null);
       setSubscription(null);
       return { error: null };
     } catch (error: any) {
-      console.error('Error deleting account:', error);
+      console.error('[Auth] Error deleting account:', error);
       return { error };
     }
-  }, [user]);
+  }, [user, getAuthToken]);
 
   const signInWithOAuth = useCallback(async (provider: 'google' | 'apple') => {
     try {
@@ -595,20 +623,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           const result = await signInResponse.json();
           
           const userData: User = {
-            id: result.user.id,
-            email: result.user.email,
-            fullName: result.user.fullName,
+            id: result.user?.id || result.id,
+            email: result.user?.email || result.email,
+            fullName: result.user?.fullName || result.fullName || result.user?.full_name || result.full_name,
             authProvider: provider,
           };
           
-          await AsyncStorage.setItem('authToken', result.token);
-          setUser(userData);
-          setAuthProvider(provider);
+          const token = result.token || result.access_token;
+          const expiryDate = new Date();
+          expiryDate.setDate(expiryDate.getDate() + TOKEN_EXPIRY_DAYS);
+          
+          await AsyncStorage.setItem('authToken', token);
+          await AsyncStorage.setItem('tokenExpiry', expiryDate.toISOString());
           await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
           await AsyncStorage.setItem('authProvider', provider);
-          setTimeout(() => loadProfile(userData.id), 2000);
-          setTimeout(() => loadSubscription(userData.id), 5000);
-          setTimeout(() => loadDailyScans(userData.id), 8000);
+          await AsyncStorage.removeItem('guestMode');
+          
+          setUser(userData);
+          setAuthProvider(provider);
+          setIsGuest(false);
+          
+          loadProfile(userData.id);
+          loadSubscription(userData.id);
+          loadDailyScans(userData.id);
           
           return { data: userData, error: null };
         }
@@ -639,20 +676,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           const createResult = await signUpResponse.json();
           
           const userData: User = {
-            id: createResult.user.id,
-            email: createResult.user.email,
-            fullName: createResult.user.fullName,
+            id: createResult.user?.id || createResult.id,
+            email: createResult.user?.email || createResult.email,
+            fullName: createResult.user?.fullName || createResult.fullName || createResult.user?.full_name || createResult.full_name,
             authProvider: provider,
           };
           
-          await AsyncStorage.setItem('authToken', createResult.token);
-          setUser(userData);
-          setAuthProvider(provider);
+          const token = createResult.token || createResult.access_token;
+          const expiryDate = new Date();
+          expiryDate.setDate(expiryDate.getDate() + TOKEN_EXPIRY_DAYS);
+          
+          await AsyncStorage.setItem('authToken', token);
+          await AsyncStorage.setItem('tokenExpiry', expiryDate.toISOString());
           await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
           await AsyncStorage.setItem('authProvider', provider);
-          setTimeout(() => loadProfile(userData.id), 2000);
-          setTimeout(() => loadSubscription(userData.id), 5000);
-          setTimeout(() => loadDailyScans(userData.id), 8000);
+          await AsyncStorage.removeItem('guestMode');
+          
+          setUser(userData);
+          setAuthProvider(provider);
+          setIsGuest(false);
+          
+          loadProfile(userData.id);
+          loadSubscription(userData.id);
+          loadDailyScans(userData.id);
           
           return { data: userData, error: null };
         }
