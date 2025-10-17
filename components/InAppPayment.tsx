@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Platform, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { X } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import { getPaymentDetails } from '@/utils/paymentHelpers';
 import type { PlanType, BillingCycle } from '@/utils/paymentHelpers';
+
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site').replace(/\/$/, '');
 
 interface InAppPaymentProps {
   visible: boolean;
@@ -25,13 +27,7 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
     formattedAmount: string;
   } | null>(null);
 
-  useEffect(() => {
-    if (visible) {
-      loadPaymentDetails();
-    }
-  }, [visible, planType, billingCycle]);
-
-  const loadPaymentDetails = async () => {
+  const loadPaymentDetails = useCallback(async () => {
     try {
       const details = await getPaymentDetails(planType, billingCycle);
       setPaymentDetails({
@@ -50,7 +46,13 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
         trigger: null,
       });
     }
-  };
+  }, [planType, billingCycle]);
+
+  useEffect(() => {
+    if (visible) {
+      loadPaymentDetails();
+    }
+  }, [visible, planType, billingCycle, loadPaymentDetails]);
 
   const handlePayment = async () => {
     if (!user) {
@@ -88,34 +90,34 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
 
       const paymentReference = `${Platform.OS.toUpperCase()}_${Date.now()}_${planType}_${billingCycle}`;
 
-      const { error: subscriptionError } = await supabase.from('subscriptions').insert({
-        user_id: user.id,
-        plan_type: planType,
-        status: 'active',
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-        payment_reference: paymentReference,
-      });
-
-      if (subscriptionError) {
-        console.error('Supabase subscription error:', subscriptionError);
-        throw subscriptionError;
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Not authenticated');
       }
 
-      const { error: paymentHistoryError } = await supabase.from('payment_history').insert({
-        user_id: user.id,
-        plan_type: planType,
-        billing_cycle: billingCycle,
-        amount: paymentDetails?.amount || 0,
-        currency: paymentDetails?.currency || 'USD',
-        payment_method: paymentMethod,
-        payment_reference: paymentReference,
-        status: 'completed',
-        paid_at: new Date().toISOString(),
+      const response = await fetch(`${API_BASE_URL}/api/subscription`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          planType: planType,
+          billingCycle: billingCycle,
+          status: 'active',
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          paymentReference: paymentReference,
+          amount: paymentDetails?.amount || 0,
+          currency: paymentDetails?.currency || 'USD',
+          paymentMethod: paymentMethod,
+        }),
       });
 
-      if (paymentHistoryError) {
-        console.log('Payment history error (non-critical):', paymentHistoryError);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create subscription');
       }
 
       await Notifications.scheduleNotificationAsync({
