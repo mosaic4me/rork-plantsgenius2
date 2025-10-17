@@ -606,25 +606,60 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const deleteUrl = `${API_BASE_URL}/api/trpc/auth.deleteUser?batch=1`;
       console.log('[Auth] Delete URL:', deleteUrl);
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('[Auth] Delete request timeout - aborting');
+        controller.abort();
+      }, 15000);
+      
       const response = await fetch(deleteUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
         body: JSON.stringify({
           "0": {
             userId: user.id
           }
         }),
       });
+      
+      clearTimeout(timeoutId);
 
       console.log('[Auth] Delete response status:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Auth] Delete failed with response:', errorText);
-        throw new Error('Failed to delete account');
+        const contentType = response.headers.get('content-type');
+        console.log('[Auth] Error response content-type:', contentType);
+        
+        try {
+          if (contentType?.includes('application/json')) {
+            const errorData = await response.json();
+            console.error('[Auth] Delete failed with JSON:', errorData);
+            
+            const errorMessage = errorData.error || errorData.message || 'Failed to delete account';
+            throw new Error(errorMessage);
+          } else {
+            const errorText = await response.text();
+            console.error('[Auth] Delete failed with text:', errorText);
+            
+            if (response.status === 429 || errorText.toLowerCase().includes('too many requests')) {
+              throw new Error('TOO_MANY_REQUESTS: You have made too many requests. Please wait a few minutes and try again.');
+            }
+            
+            throw new Error(errorText || 'Failed to delete account');
+          }
+        } catch (parseError) {
+          console.error('[Auth] Failed to parse error response:', parseError);
+          
+          if (response.status === 429) {
+            throw new Error('TOO_MANY_REQUESTS: You have made too many requests. Please wait a few minutes and try again.');
+          }
+          
+          throw new Error(`Server returned status ${response.status}. Please try again.`);
+        }
       }
 
       const result = await response.json();
@@ -647,7 +682,30 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.error('[Auth] Error deleting account:', error);
       console.error('[Auth] Error message:', error?.message);
       console.error('[Auth] Error stack:', error?.stack);
-      return { error: error?.message || 'Failed to delete account' };
+      
+      let errorMessage = 'Unable to delete account at this time.';
+      
+      if (error?.message) {
+        const msg = error.message;
+        
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timeout. Please check your internet connection and try again.';
+        } else if (msg.includes('TOO_MANY_REQUESTS')) {
+          errorMessage = 'You have made too many requests. Please wait a few minutes and try again.';
+        } else if (msg.toLowerCase().includes('too many requests') || msg.toLowerCase().includes('rate limit')) {
+          errorMessage = 'You have made too many requests. Please wait a few minutes and try again.';
+        } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
+          errorMessage = 'Cannot connect to server. Please check your internet connection and try again.';
+        } else if (msg.toLowerCase().includes('backend_unavailable')) {
+          errorMessage = 'Service is temporarily unavailable. Please try again later.';
+        } else if (msg.toLowerCase().includes('not authenticated') || msg.toLowerCase().includes('unauthorized')) {
+          errorMessage = 'Your session has expired. Please sign in again.';
+        } else {
+          errorMessage = msg;
+        }
+      }
+      
+      return { error: errorMessage };
     }
   }, [user, getAuthToken]);
 
