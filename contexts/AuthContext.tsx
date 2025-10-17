@@ -272,7 +272,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       console.log('[SignUp] Response status:', response.status);
       console.log('[SignUp] Response ok:', response.ok);
-      console.log('[SignUp] Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      const headersObj: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headersObj[key] = value;
+      });
+      console.log('[SignUp] Response headers:', headersObj);
       
       if (response.status === 404) {
         console.log('[SignUp] 404 Error - Backend endpoint not found');
@@ -413,7 +418,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       console.log('[SignIn] Response status:', response.status);
       console.log('[SignIn] Response ok:', response.ok);
-      console.log('[SignIn] Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      const headersObj: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headersObj[key] = value;
+      });
+      console.log('[SignIn] Response headers:', headersObj);
       
       if (response.status === 404) {
         console.log('[SignIn] 404 Error - Backend endpoint not found');
@@ -427,14 +437,32 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const contentType = response.headers.get('content-type');
         console.log('[SignIn] Error response content-type:', contentType);
         
-        if (contentType?.includes('application/json')) {
-          const errorData = await response.json();
-          console.log('[SignIn] Error data:', errorData);
-          throw new Error(errorData.error || errorData.message || 'Failed to sign in');
-        } else {
-          const errorText = await response.text();
-          console.log('[SignIn] Error text (first 500 chars):', errorText.substring(0, 500));
-          throw new Error('Server returned an unexpected error');
+        try {
+          if (contentType?.includes('application/json')) {
+            const errorData = await response.json();
+            console.log('[SignIn] Error data:', errorData);
+            throw new Error(errorData.error || errorData.message || 'Failed to sign in');
+          } else {
+            const errorText = await response.text();
+            console.log('[SignIn] Error text (first 500 chars):', errorText.substring(0, 500));
+            
+            if (errorText.toLowerCase().includes('too many requests') || errorText.toLowerCase().includes('rate limit')) {
+              throw new Error('TOO_MANY_REQUESTS: You have made too many requests. Please wait a few minutes and try again.');
+            }
+            
+            if (errorText.toLowerCase().includes('invalid email or password')) {
+              throw new Error('Invalid email or password');
+            }
+            
+            const statusMsg = `Server returned status ${response.status}`;
+            throw new Error(`${statusMsg}: ${errorText.substring(0, 100) || 'Unknown error'}`);
+          }
+        } catch (parseError) {
+          if (parseError instanceof Error && (parseError.message.includes('TOO_MANY_REQUESTS') || parseError.message.includes('Invalid email or password') || parseError.message.includes('Server returned status'))) {
+            throw parseError;
+          }
+          console.log('[SignIn] Failed to parse error response:', parseError);
+          throw new Error(`Authentication failed with status ${response.status}. Please try again.`);
         }
       }
       
@@ -489,6 +517,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         if (error.name === 'AbortError') {
           errorMessage = 'Connection timeout. Please check your internet connection and try again.';
+        } else if (msg.includes('TOO_MANY_REQUESTS')) {
+          errorMessage = 'You have made too many requests. Please wait a few minutes and try again.';
         } else if (msg.includes('BACKEND_UNAVAILABLE')) {
           errorMessage = 'Backend service is not available. Please use Guest Mode or contact support.';
         } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
@@ -499,6 +529,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           errorMessage = 'No account found with this email. Please sign up first.';
         } else if (msg.toLowerCase().includes('mongodb') || msg.toLowerCase().includes('database')) {
           errorMessage = 'Database service is unavailable. Please try again later.';
+        } else if (msg.includes('Server returned status')) {
+          errorMessage = msg;
         } else {
           errorMessage = msg;
         }
