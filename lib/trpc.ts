@@ -4,9 +4,9 @@ import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
 
-const requestQueue: Array<() => Promise<any>> = [];
+const requestQueue: (() => Promise<any>)[] = [];
 let isProcessingQueue = false;
-const REQUEST_DELAY = 300;
+const REQUEST_DELAY = 1000;
 
 const processQueue = async () => {
   if (isProcessingQueue || requestQueue.length === 0) {
@@ -61,8 +61,6 @@ const customFetch = async (url: string, options: any) => {
   return new Promise((resolve, reject) => {
     requestQueue.push(async () => {
       try {
-        console.log('[tRPC] 🔄 Request starting:', url);
-        console.log('[tRPC] 📤 Method:', options?.method || 'GET');
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -80,8 +78,6 @@ const customFetch = async (url: string, options: any) => {
       headers['Origin'] = typeof window !== 'undefined' ? window.location.origin : 'https://localhost';
     }
     
-    console.log('[tRPC] 📋 Request headers:', Object.keys(headers).join(', '));
-    
     const fetchOptions = {
       ...options,
       signal: controller.signal,
@@ -93,23 +89,8 @@ const customFetch = async (url: string, options: any) => {
     
     clearTimeout(timeoutId);
     
-    console.log('[tRPC] ✅ Response received:', {
-      status: response.status,
-      ok: response.ok,
-      statusText: response.statusText,
-      contentType: response.headers.get('content-type'),
-    });
-    
     if (!response.ok) {
       const contentType = response.headers.get('content-type');
-      let responseText = '';
-      
-      try {
-        responseText = await response.text();
-        console.log('[tRPC] ❌ Error response body:', responseText.substring(0, 500));
-      } catch (_e) {
-        console.error('[tRPC] Could not read response body');
-      }
       
       if (response.status === 404) {
         console.error('[tRPC] ❌ 404 - Backend endpoint not found');
@@ -123,8 +104,6 @@ const customFetch = async (url: string, options: any) => {
       }
       
       if (response.status === 429) {
-        console.error('[tRPC] ❌ Rate Limited (429) - Too Many Requests');
-        console.error('[tRPC] Backend is rate limiting requests. Implement throttling.');
         throw new Error('RATE_LIMITED');
       }
       
@@ -141,27 +120,16 @@ const customFetch = async (url: string, options: any) => {
 
         resolve(response);
       } catch (error: any) {
-        console.error('[tRPC] ❌ Fetch error occurred:');
-        console.error('[tRPC] Error name:', error.name);
-        console.error('[tRPC] Error message:', error.message);
-        console.error('[tRPC] Error stack:', error.stack?.substring(0, 200));
     
     if (error.name === 'AbortError') {
-      console.error('[tRPC] ⏱️ Request timeout after 30 seconds');
       throw new Error('BACKEND_TIMEOUT');
     }
     
     if (error.message?.includes('Failed to fetch')) {
-      console.error('[tRPC] 🌐 Network error - possible causes:');
-      console.error('[tRPC] 1. Backend server is down or not deployed');
-      console.error('[tRPC] 2. CORS issues preventing the request');
-      console.error('[tRPC] 3. Internet connection issues');
-      console.error('[tRPC] 4. SSL/TLS certificate issues');
       throw new Error('BACKEND_NETWORK_ERROR');
     }
     
         if (error.message?.includes('Network request failed')) {
-          console.error('[tRPC] 🌐 Network request failed (mobile)');
           reject(new Error('BACKEND_NETWORK_ERROR'));
           return;
         }

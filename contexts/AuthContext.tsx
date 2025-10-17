@@ -42,59 +42,134 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [adClicksToday, setAdClicksToday] = useState(0);
   const [lastAdClickDate, setLastAdClickDate] = useState<string | null>(null);
 
-  const loadProfile = useCallback(async (userId: string) => {
+  const [profileCache, setProfileCache] = useState<Map<string, { data: Profile; timestamp: number }>>(new Map());
+  const [isLoadingProfile, setIsLoadingProfile] = useState<Set<string>>(new Set());
+  const CACHE_DURATION = 60000; // 1 minute
+  const MAX_RETRY_DELAY = 30000; // 30 seconds
+
+  const loadProfile = useCallback(async (userId: string, retryCount = 0) => {
+    // Check cache first
+    const cached = profileCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      setProfile(cached.data);
+      return;
+    }
+
+    // Prevent duplicate requests
+    if (isLoadingProfile.has(userId)) {
+      return;
+    }
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      setIsLoadingProfile(prev => new Set(prev).add(userId));
+      await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
       const user = await trpcClient.auth.getUser.query({ userId });
       if (user) {
-        setProfile({
+        const profileData: Profile = {
           id: user.id,
           email: user.email,
           full_name: user.fullName,
           avatar_url: null,
-        });
+        };
+        setProfile(profileData);
+        setProfileCache(prev => new Map(prev).set(userId, { data: profileData, timestamp: Date.now() }));
       }
     } catch (error: any) {
       if (error?.message?.includes('RATE_LIMITED')) {
-        console.warn('[Auth] Rate limited - will retry profile load');
-        setTimeout(() => loadProfile(userId), 2000);
+        const delay = Math.min(1000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
+        console.warn(`[Auth] Rate limited - will retry profile load in ${delay}ms`);
+        setTimeout(() => loadProfile(userId, retryCount + 1), delay);
         return;
       }
       console.error('Error loading profile:', error);
+    } finally {
+      setIsLoadingProfile(prev => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
     }
-  }, []);
+  }, [profileCache, isLoadingProfile]);
 
-  const loadSubscription = useCallback(async (userId: string) => {
+  const [subscriptionCache, setSubscriptionCache] = useState<Map<string, { data: Subscription; timestamp: number }>>(new Map());
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState<Set<string>>(new Set());
+
+  const loadSubscription = useCallback(async (userId: string, retryCount = 0) => {
+    // Check cache first
+    const cached = subscriptionCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      setSubscription(cached.data);
+      return;
+    }
+
+    // Prevent duplicate requests
+    if (isLoadingSubscription.has(userId)) {
+      return;
+    }
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      setIsLoadingSubscription(prev => new Set(prev).add(userId));
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay
       const sub = await trpcClient.subscription.getSubscription.query({ userId });
       if (sub) {
-        setSubscription({
+        const subData: Subscription = {
           id: sub.id,
           plan_type: sub.planType,
           status: sub.status,
           start_date: sub.startDate,
           end_date: sub.endDate,
-        });
+        };
+        setSubscription(subData);
+        setSubscriptionCache(prev => new Map(prev).set(userId, { data: subData, timestamp: Date.now() }));
       }
     } catch (error: any) {
       if (error?.message?.includes('RATE_LIMITED')) {
-        console.warn('[Auth] Rate limited - will retry subscription load');
-        setTimeout(() => loadSubscription(userId), 2000);
+        const delay = Math.min(1000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
+        console.warn(`[Auth] Rate limited - will retry subscription load in ${delay}ms`);
+        setTimeout(() => loadSubscription(userId, retryCount + 1), delay);
         return;
       }
       console.error('Error loading subscription:', error);
+    } finally {
+      setIsLoadingSubscription(prev => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
     }
-  }, []);
+  }, [subscriptionCache, isLoadingSubscription]);
 
-  const loadDailyScans = useCallback(async (userId?: string) => {
+  const [scansCache, setScansCache] = useState<Map<string, { scansRemaining: number; timestamp: number }>>(new Map());
+  const [isLoadingScans, setIsLoadingScans] = useState<Set<string>>(new Set());
+
+  const loadDailyScans = useCallback(async (userId?: string, retryCount = 0) => {
     try {
       const today = new Date().toISOString().split('T')[0];
+      const cacheKey = userId || 'guest';
+      
+      // Check cache first
+      const cached = scansCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        setDailyScansRemaining(cached.scansRemaining);
+        return;
+      }
+
+      // Prevent duplicate requests
+      if (isLoadingScans.has(cacheKey)) {
+        return;
+      }
       
       if (userId) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        setIsLoadingScans(prev => new Set(prev).add(cacheKey));
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay
         const result = await trpcClient.scans.getDailyScans.query({ userId, date: today });
         setDailyScansRemaining(result.scansRemaining);
+        setScansCache(prev => new Map(prev).set(cacheKey, { scansRemaining: result.scansRemaining, timestamp: Date.now() }));
+        setIsLoadingScans(prev => {
+          const next = new Set(prev);
+          next.delete(cacheKey);
+          return next;
+        });
       } else {
         const storedDate = await AsyncStorage.getItem('lastScanResetDate');
         const storedCount = await AsyncStorage.getItem('dailyScanCount');
@@ -112,13 +187,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
     } catch (error: any) {
       if (error?.message?.includes('RATE_LIMITED')) {
-        console.warn('[Auth] Rate limited - will retry scans load');
-        setTimeout(() => loadDailyScans(userId), 2000);
+        const delay = Math.min(1000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
+        console.warn(`[Auth] Rate limited - will retry scans load in ${delay}ms`);
+        setTimeout(() => loadDailyScans(userId, retryCount + 1), delay);
         return;
       }
       console.error('Error loading daily scans:', error);
     }
-  }, []);
+  }, [scansCache, isLoadingScans]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -135,9 +211,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           setUser(userData);
-          await loadProfile(userData.id);
-          await loadSubscription(userData.id);
-          await loadDailyScans(userData.id);
+          // Load data sequentially with delays to prevent rate limiting
+          setTimeout(() => loadProfile(userData.id), 500);
+          setTimeout(() => loadSubscription(userData.id), 1500);
+          setTimeout(() => loadDailyScans(userData.id), 2500);
         } else {
           await loadDailyScans();
         }

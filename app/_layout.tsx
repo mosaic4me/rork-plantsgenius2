@@ -14,12 +14,14 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60000,
-      gcTime: 300000,
-      retry: 1,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+      staleTime: 300000, // 5 minutes
+      gcTime: 600000, // 10 minutes
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
+      refetchOnMount: false,
+      networkMode: 'offlineFirst',
     },
   },
 });
