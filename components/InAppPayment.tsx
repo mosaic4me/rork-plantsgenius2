@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import { X } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -163,9 +164,21 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
 
       const paymentReference = `${Platform.OS.toUpperCase()}_${Date.now()}_${planType}_${billingCycle}`;
 
-      const token = await AsyncStorage.getItem('authToken');
+      let token: string | null = null;
+      try {
+        if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+          token = await AsyncStorage.getItem('authToken');
+        } else {
+          token = await SecureStore.getItemAsync('authToken');
+        }
+      } catch (storageError) {
+        console.error('[Payment] Error accessing auth token:', storageError);
+        throw new Error('Failed to access authentication. Please sign in again.');
+      }
+      
       if (!token) {
-        throw new Error('Not authenticated');
+        console.error('[Payment] No auth token found');
+        throw new Error('Your session has expired. Please sign in again to continue.');
       }
 
       const response = await fetchWithRetry(
