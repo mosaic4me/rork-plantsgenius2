@@ -44,25 +44,23 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const [profileCache, setProfileCache] = useState<Map<string, { data: Profile; timestamp: number }>>(new Map());
   const [isLoadingProfile, setIsLoadingProfile] = useState<Set<string>>(new Set());
-  const CACHE_DURATION = 60000; // 1 minute
-  const MAX_RETRY_DELAY = 30000; // 30 seconds
+  const CACHE_DURATION = 60000;
+  const MAX_RETRY_DELAY = 30000;
 
   const loadProfile = useCallback(async (userId: string, retryCount = 0) => {
-    // Check cache first
     const cached = profileCache.get(userId);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       setProfile(cached.data);
       return;
     }
 
-    // Prevent duplicate requests
     if (isLoadingProfile.has(userId)) {
       return;
     }
 
     try {
       setIsLoadingProfile(prev => new Set(prev).add(userId));
-      await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
       const user = await trpcClient.auth.getUser.query({ userId });
       if (user) {
         const profileData: Profile = {
@@ -76,7 +74,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
     } catch (error: any) {
       if (error?.message?.includes('RATE_LIMITED')) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
+        const delay = Math.min(2000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
         console.warn(`[Auth] Rate limited - will retry profile load in ${delay}ms`);
         setTimeout(() => loadProfile(userId, retryCount + 1), delay);
         return;
@@ -95,21 +93,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [isLoadingSubscription, setIsLoadingSubscription] = useState<Set<string>>(new Set());
 
   const loadSubscription = useCallback(async (userId: string, retryCount = 0) => {
-    // Check cache first
     const cached = subscriptionCache.get(userId);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       setSubscription(cached.data);
       return;
     }
 
-    // Prevent duplicate requests
     if (isLoadingSubscription.has(userId)) {
       return;
     }
 
     try {
       setIsLoadingSubscription(prev => new Set(prev).add(userId));
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay
+      await new Promise(resolve => setTimeout(resolve, 3000));
       const sub = await trpcClient.subscription.getSubscription.query({ userId });
       if (sub) {
         const subData: Subscription = {
@@ -124,7 +120,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
     } catch (error: any) {
       if (error?.message?.includes('RATE_LIMITED')) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
+        const delay = Math.min(2000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
         console.warn(`[Auth] Rate limited - will retry subscription load in ${delay}ms`);
         setTimeout(() => loadSubscription(userId, retryCount + 1), delay);
         return;
@@ -147,21 +143,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const today = new Date().toISOString().split('T')[0];
       const cacheKey = userId || 'guest';
       
-      // Check cache first
       const cached = scansCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
         setDailyScansRemaining(cached.scansRemaining);
         return;
       }
 
-      // Prevent duplicate requests
       if (isLoadingScans.has(cacheKey)) {
         return;
       }
       
       if (userId) {
         setIsLoadingScans(prev => new Set(prev).add(cacheKey));
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay
+        await new Promise(resolve => setTimeout(resolve, 4000));
         const result = await trpcClient.scans.getDailyScans.query({ userId, date: today });
         setDailyScansRemaining(result.scansRemaining);
         setScansCache(prev => new Map(prev).set(cacheKey, { scansRemaining: result.scansRemaining, timestamp: Date.now() }));
@@ -187,7 +181,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
     } catch (error: any) {
       if (error?.message?.includes('RATE_LIMITED')) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
+        const delay = Math.min(2000 * Math.pow(2, retryCount), MAX_RETRY_DELAY);
         console.warn(`[Auth] Rate limited - will retry scans load in ${delay}ms`);
         setTimeout(() => loadDailyScans(userId, retryCount + 1), delay);
         return;
@@ -211,10 +205,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           setUser(userData);
-          // Load data sequentially with delays to prevent rate limiting
-          setTimeout(() => loadProfile(userData.id), 500);
-          setTimeout(() => loadSubscription(userData.id), 1500);
-          setTimeout(() => loadDailyScans(userData.id), 2500);
+          setTimeout(() => loadProfile(userData.id), 2000);
+          setTimeout(() => loadSubscription(userData.id), 5000);
+          setTimeout(() => loadDailyScans(userData.id), 8000);
         } else {
           await loadDailyScans();
         }
@@ -241,7 +234,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return () => {
       clearInterval(midnightCheckInterval);
     };
-  }, [loadProfile, loadSubscription, loadDailyScans, lastResetDate, user]);
+  }, []);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     try {
@@ -287,9 +280,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       await AsyncStorage.setItem('authToken', result.token);
       setUser(userData);
       await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-      await loadProfile(userData.id);
-      await loadSubscription(userData.id);
-      await loadDailyScans(userData.id);
+      setTimeout(() => loadProfile(userData.id), 2000);
+      setTimeout(() => loadSubscription(userData.id), 5000);
+      setTimeout(() => loadDailyScans(userData.id), 8000);
       
       return { data: userData, error: null };
     } catch (error: any) {
@@ -371,9 +364,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       await AsyncStorage.setItem('authToken', result.token);
       setUser(userData);
       await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-      await loadProfile(userData.id);
-      await loadSubscription(userData.id);
-      await loadDailyScans(userData.id);
+      setTimeout(() => loadProfile(userData.id), 2000);
+      setTimeout(() => loadSubscription(userData.id), 5000);
+      setTimeout(() => loadDailyScans(userData.id), 8000);
       
       return { data: userData, error: null };
     } catch (error: any) {
@@ -578,9 +571,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           setAuthProvider(provider);
           await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
           await AsyncStorage.setItem('authProvider', provider);
-          await loadProfile(userData.id);
-          await loadSubscription(userData.id);
-          await loadDailyScans(userData.id);
+          setTimeout(() => loadProfile(userData.id), 2000);
+          setTimeout(() => loadSubscription(userData.id), 5000);
+          setTimeout(() => loadDailyScans(userData.id), 8000);
           
           return { data: userData, error: null };
         }
@@ -620,9 +613,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           setAuthProvider(provider);
           await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
           await AsyncStorage.setItem('authProvider', provider);
-          await loadProfile(userData.id);
-          await loadSubscription(userData.id);
-          await loadDailyScans(userData.id);
+          setTimeout(() => loadProfile(userData.id), 2000);
+          setTimeout(() => loadSubscription(userData.id), 5000);
+          setTimeout(() => loadDailyScans(userData.id), 8000);
           
           return { data: userData, error: null };
         }

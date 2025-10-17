@@ -6,7 +6,7 @@ import { Platform } from "react-native";
 
 const requestQueue: (() => Promise<any>)[] = [];
 let isProcessingQueue = false;
-const REQUEST_DELAY = 1000;
+const REQUEST_DELAY = 2000;
 
 const processQueue = async () => {
   if (isProcessingQueue || requestQueue.length === 0) {

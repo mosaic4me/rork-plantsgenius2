@@ -38,8 +38,12 @@ export default function ProfileScreen() {
     premiumYearly: '$52.76',
   });
   const [isLoadingPrices, setIsLoadingPrices] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
+    if (isInitialized) return;
+    setIsInitialized(true);
+    
     const initializePricing = async () => {
       try {
         const hasRequestedLocation = await AsyncStorage.getItem('hasRequestedLocationForCurrency');
@@ -85,7 +89,7 @@ export default function ProfileScreen() {
     };
 
     initializePricing();
-  }, []);
+  }, [isInitialized]);
 
   const handlePress = (action: string) => {
     if (Platform.OS !== 'web') {
