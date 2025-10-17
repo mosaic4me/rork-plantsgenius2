@@ -52,11 +52,39 @@ app.get("/api/health", (c) => {
 app.post("/api/auth/signup", async (c) => {
   try {
     console.log('[REST SignUp] Request received');
-    const body = await c.req.json();
+    console.log('[REST SignUp] Content-Type:', c.req.header('content-type'));
+    
+    let body;
+    try {
+      body = await c.req.json();
+      console.log('[REST SignUp] Body parsed successfully');
+    } catch (parseError) {
+      console.error('[REST SignUp] Failed to parse JSON body:', parseError);
+      return c.json({ error: 'Invalid JSON in request body' }, 400);
+    }
+    
     const { email, password, fullName } = body;
 
+    console.log('[REST SignUp] Validating input...');
     if (!email || !password || !fullName) {
-      return c.json({ error: 'Missing required fields' }, 400);
+      console.log('[REST SignUp] Missing required fields');
+      return c.json({ error: 'Missing required fields: email, password, and fullName are required' }, 400);
+    }
+
+    if (typeof email !== 'string' || typeof password !== 'string' || typeof fullName !== 'string') {
+      console.log('[REST SignUp] Invalid field types');
+      return c.json({ error: 'Invalid field types: email, password, and fullName must be strings' }, 400);
+    }
+
+    if (password.length < 6) {
+      console.log('[REST SignUp] Password too short');
+      return c.json({ error: 'Password must be at least 6 characters long' }, 400);
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log('[REST SignUp] Invalid email format');
+      return c.json({ error: 'Invalid email format' }, 400);
     }
 
     console.log('[REST SignUp] Checking for existing user:', email);
@@ -72,13 +100,14 @@ app.post("/api/auth/signup", async (c) => {
     console.log('[REST SignUp] Creating user in database...');
     const mongoUser = await createUser(email, hashedPassword, fullName);
     
+    console.log('[REST SignUp] Generating JWT token...');
     const token = jwt.sign(
       { userId: mongoUser._id!.toString(), email: mongoUser.email },
       process.env.JWT_SECRET || '2a804b2aea4c1f663e7e82e532abe6cb43c9d8d467bb83e11af5be7c665f342d',
       { expiresIn: '30d' }
     );
 
-    console.log('[REST SignUp] User created successfully');
+    console.log('[REST SignUp] User created successfully:', mongoUser._id!.toString());
     return c.json({
       user: {
         id: mongoUser._id!.toString(),
@@ -86,10 +115,32 @@ app.post("/api/auth/signup", async (c) => {
         fullName: mongoUser.fullName,
       },
       token,
-    });
+    }, 201);
   } catch (error: any) {
-    console.error('[REST SignUp] Error:', error.message);
-    return c.json({ error: error.message || 'Failed to create user' }, 500);
+    console.error('[REST SignUp] Error occurred:', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack?.substring(0, 500),
+    });
+    
+    let errorMessage = 'Failed to create user';
+    
+    if (error?.message) {
+      if (error.message.includes('already exists')) {
+        errorMessage = 'User already exists with this email';
+        return c.json({ error: errorMessage }, 400);
+      } else if (error.message.includes('MongoDB') || error.message.includes('database')) {
+        errorMessage = 'Database connection error. Please try again later.';
+        return c.json({ error: errorMessage }, 503);
+      } else if (error.message.includes('network') || error.message.includes('ECONNREFUSED')) {
+        errorMessage = 'Service temporarily unavailable. Please try again later.';
+        return c.json({ error: errorMessage }, 503);
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    return c.json({ error: errorMessage }, 500);
   }
 });
 

@@ -253,18 +253,41 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const contentType = response.headers.get('content-type');
         console.log('[SignUp] Error response content-type:', contentType);
         
-        if (contentType?.includes('application/json')) {
-          const errorData = await response.json();
-          console.log('[SignUp] Error data:', errorData);
-          throw new Error(errorData.error || errorData.message || 'Failed to sign up');
-        } else {
-          const errorText = await response.text();
-          console.log('[SignUp] Error text (first 500 chars):', errorText.substring(0, 500));
-          throw new Error('Server returned an unexpected error');
+        try {
+          if (contentType?.includes('application/json')) {
+            const errorData = await response.json();
+            console.log('[SignUp] Error data:', errorData);
+            throw new Error(errorData.error || errorData.message || 'Failed to sign up');
+          } else {
+            const errorText = await response.text();
+            console.log('[SignUp] Error text (first 500 chars):', errorText.substring(0, 500));
+            throw new Error(`Server error (${response.status}): ${errorText.substring(0, 200) || 'Unknown error'}`);
+          }
+        } catch (parseError) {
+          console.log('[SignUp] Failed to parse error response:', parseError);
+          throw new Error(`Server returned status ${response.status}. Please try again.`);
         }
       }
       
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+        console.log('[SignUp] Success response:', result);
+      } catch (parseError) {
+        console.error('[SignUp] Failed to parse success response:', parseError);
+        throw new Error('Server returned invalid response format');
+      }
+      
+      if (!result.user && !result.id) {
+        console.error('[SignUp] Response missing user data:', result);
+        throw new Error('Server returned incomplete data');
+      }
+      
+      if (!result.token && !result.access_token) {
+        console.error('[SignUp] Response missing token:', result);
+        throw new Error('Server returned incomplete authentication data');
+      }
+      
       console.log('[SignUp] Success - user created:', result.user?.id || result.id);
       
       const userData: User = {
