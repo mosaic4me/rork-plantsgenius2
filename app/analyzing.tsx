@@ -133,13 +133,24 @@ export default function AnalyzingScreen() {
             saved: false,
           };
         } catch (backendError: any) {
-          console.log('[Analyzing] ⚠️ Backend unavailable, using direct PlantNet API');
+          console.log('[Analyzing] ⚠️ Backend error:', backendError.message);
+          
+          if (backendError.message?.includes('RATE_LIMIT_EXCEEDED') || backendError.message?.includes('429')) {
+            throw new Error('Daily scan limit reached. The plant identification service has reached its daily limit of 500 requests. Please try again tomorrow or consider upgrading to premium for unlimited scans.');
+          }
+          
+          console.log('[Analyzing] Attempting direct PlantNet API fallback');
           
           try {
             plantData = await identifyPlant(params.imageUri);
             console.log('[Analyzing] ✅ Direct API identification successful');
           } catch (directApiError: any) {
             console.error('[Analyzing] ❌ Direct API failed:', directApiError.message);
+            
+            if (directApiError.message?.includes('RATE_LIMIT_EXCEEDED') || directApiError.message?.includes('429')) {
+              throw new Error('Daily scan limit reached. The plant identification service has reached its daily limit. Please try again tomorrow or upgrade to premium for unlimited scans.');
+            }
+            
             throw directApiError;
           }
         }
@@ -171,20 +182,29 @@ export default function AnalyzingScreen() {
         }
       } catch (err: any) {
         console.error('Error analyzing plant:', err);
-        const errorMessage = err.message || 'Failed to identify plant';
+        let errorMessage = err.message || 'Failed to identify plant';
+        let errorTitle = 'Identification Failed';
+        let visibilityTime = 5000;
+        
+        if (errorMessage.includes('RATE_LIMIT_EXCEEDED') || errorMessage.includes('Daily scan limit') || errorMessage.includes('429')) {
+          errorTitle = 'Daily Limit Reached';
+          errorMessage = 'The plant identification service has reached its daily limit. Please try again tomorrow or upgrade to premium.';
+          visibilityTime = 6000;
+        }
+        
         setError(errorMessage);
         
         Toast.show({
           type: 'error',
-          text1: 'Identification Failed',
+          text1: errorTitle,
           text2: errorMessage,
           position: 'top',
-          visibilityTime: 4000,
+          visibilityTime,
         });
         
         setTimeout(() => {
           router.back();
-        }, 2000);
+        }, 3000);
       }
     };
 

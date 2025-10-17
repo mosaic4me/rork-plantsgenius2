@@ -46,13 +46,19 @@ export const identifyPlantProcedure = publicProcedure
       
       if (!response.ok) {
         let errorText = '';
+        let errorJson: any = null;
+        
         try {
-          const errorJson = await response.json();
+          errorJson = await response.json();
           errorText = JSON.stringify(errorJson);
           console.error('[Backend] API Error (JSON):', errorJson);
         } catch {
           errorText = await response.text();
           console.error('[Backend] API Error (Text):', errorText);
+        }
+        
+        if (response.status === 429) {
+          throw new Error('RATE_LIMIT_EXCEEDED');
         }
         
         if (response.status === 401) {

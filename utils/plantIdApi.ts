@@ -201,13 +201,19 @@ export async function identifyPlant(imageUri: string): Promise<PlantIdentificati
     
     if (!response.ok) {
       let errorText = '';
+      let errorJson: any = null;
+      
       try {
-        const errorJson = await response.json();
+        errorJson = await response.json();
         errorText = JSON.stringify(errorJson);
         console.error('API Error (JSON):', errorJson);
       } catch {
         errorText = await response.text();
         console.error('API Error (Text):', errorText);
+      }
+      
+      if (response.status === 429) {
+        throw new Error('RATE_LIMIT_EXCEEDED: The daily plant identification limit has been reached. Please try again tomorrow or upgrade to premium for unlimited scans.');
       }
       
       if (response.status === 401) {
