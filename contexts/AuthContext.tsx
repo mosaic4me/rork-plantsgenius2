@@ -450,7 +450,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             console.log('[SignIn] Error text (first 500 chars):', errorText.substring(0, 500));
             
             if (errorText.toLowerCase().includes('too many requests') || errorText.toLowerCase().includes('rate limit')) {
-              throw new Error('TOO_MANY_REQUESTS: You have made too many requests. Please wait a few minutes and try again.');
+              throw new Error('You have made too many requests. Please wait a few minutes and try again.');
             }
             
             if (errorText.toLowerCase().includes('invalid email or password') || errorText.toLowerCase().includes('invalid credentials')) {
@@ -469,7 +469,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           }
         } catch (parseError) {
           if (parseError instanceof Error && (
-            parseError.message.includes('TOO_MANY_REQUESTS') || 
+            parseError.message.toLowerCase().includes('too many requests') || 
             parseError.message.includes('Invalid email or password') || 
             parseError.message.includes('Authentication failed') ||
             parseError.message.includes('No account found')
@@ -532,8 +532,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         if (error.name === 'AbortError') {
           errorMessage = 'Connection timeout. Please check your internet connection and try again.';
-        } else if (msg.includes('TOO_MANY_REQUESTS')) {
-          errorMessage = 'You have made too many requests. Please wait a few minutes and try again.';
+
         } else if (msg.includes('BACKEND_UNAVAILABLE')) {
           errorMessage = 'Backend service is not available. Please use Guest Mode or contact support.';
         } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
@@ -726,7 +725,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const contentType = response.headers.get('content-type');
         
         if (response.status === 429) {
-          throw new Error('TOO_MANY_REQUESTS');
+          throw new Error('You have made too many requests. Please wait a few minutes and try again.');
         }
         
         try {
@@ -735,7 +734,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             const errorMessage = errorData.error || errorData.message || 'Failed to delete account';
             
             if (errorMessage.toLowerCase().includes('too many requests') || errorMessage.toLowerCase().includes('rate limit')) {
-              throw new Error('TOO_MANY_REQUESTS');
+              throw new Error('You have made too many requests. Please wait a few minutes and try again.');
             }
             
             throw new Error(errorMessage);
@@ -743,13 +742,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             const errorText = await response.text();
             
             if (errorText.toLowerCase().includes('too many requests') || errorText.toLowerCase().includes('rate limit')) {
-              throw new Error('TOO_MANY_REQUESTS');
+              throw new Error('You have made too many requests. Please wait a few minutes and try again.');
             }
             
             throw new Error(errorText || 'Failed to delete account');
           }
         } catch (parseError) {
-          if (parseError instanceof Error && parseError.message === 'TOO_MANY_REQUESTS') {
+          if (parseError instanceof Error && parseError.message.toLowerCase().includes('too many requests')) {
             throw parseError;
           }
           throw new Error(`Server returned status ${response.status}. Please try again.`);
@@ -792,7 +791,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         if (error.name === 'AbortError') {
           errorMessage = 'Request timeout. Please check your internet connection and try again.';
-        } else if (msg === 'TOO_MANY_REQUESTS') {
+        } else if (msg.toLowerCase().includes('too many requests') || msg.toLowerCase().includes('rate limit')) {
           errorMessage = 'You have made too many requests. Please wait a few minutes and try again.';
         } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
           errorMessage = 'Cannot connect to server. Please check your internet connection and try again.';
@@ -800,7 +799,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           errorMessage = 'Service is temporarily unavailable. Please try again later.';
         } else if (msg.toLowerCase().includes('not authenticated') || msg.toLowerCase().includes('unauthorized')) {
           errorMessage = 'Your session has expired. Please sign in again.';
-        } else if (!msg.includes('TOO_MANY_REQUESTS')) {
+        } else {
           errorMessage = msg;
         }
       }
