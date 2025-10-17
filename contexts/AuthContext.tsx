@@ -69,7 +69,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       });
 
       if (response.ok) {
-        const userData = await response.json();
+        let userData;
+        try {
+          const contentTypeCheck = response.headers.get('content-type');
+          if (!contentTypeCheck || !contentTypeCheck.includes('application/json')) {
+            console.error('[Auth] Load profile returned non-JSON response');
+            return;
+          }
+          userData = await response.json();
+        } catch (parseError) {
+          console.error('[Auth] Error parsing profile response:', parseError);
+          return;
+        }
         const profileData: Profile = {
           id: userData.id,
           email: userData.email,
@@ -97,7 +108,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       });
 
       if (response.ok) {
-        const sub = await response.json();
+        let sub;
+        try {
+          const contentTypeCheck = response.headers.get('content-type');
+          if (!contentTypeCheck || !contentTypeCheck.includes('application/json')) {
+            console.error('[Auth] Load subscription returned non-JSON response');
+            return;
+          }
+          sub = await response.json();
+        } catch (parseError) {
+          console.error('[Auth] Error parsing subscription response:', parseError);
+          return;
+        }
         if (sub) {
           const subData: Subscription = {
             id: sub.id,
@@ -131,7 +153,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         });
 
         if (response.ok) {
-          const result = await response.json();
+          let result;
+          try {
+            const contentTypeCheck = response.headers.get('content-type');
+            if (!contentTypeCheck || !contentTypeCheck.includes('application/json')) {
+              console.error('[Auth] Load daily scans returned non-JSON response');
+              return;
+            }
+            result = await response.json();
+          } catch (parseError) {
+            console.error('[Auth] Error parsing daily scans response:', parseError);
+            return;
+          }
           setDailyScansRemaining(result.scansRemaining || result.scans_remaining || 2);
         }
       } else {
@@ -405,8 +438,20 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }
       }
       
-      const result = await response.json();
-      console.log('[SignIn] Success - user authenticated:', result.user?.id || result.id);
+      let result;
+      try {
+        const contentTypeCheck = response.headers.get('content-type');
+        if (!contentTypeCheck || !contentTypeCheck.includes('application/json')) {
+          const textResponse = await response.text();
+          console.log('[SignIn] Non-JSON success response:', textResponse.substring(0, 200));
+          throw new Error('Server returned invalid response format');
+        }
+        result = await response.json();
+        console.log('[SignIn] Success - user authenticated:', result.user?.id || result.id);
+      } catch (parseError) {
+        console.error('[SignIn] Failed to parse success response:', parseError);
+        throw new Error('Server returned invalid response format');
+      }
       
       const userData: User = {
         id: result.user?.id || result.id,
@@ -662,8 +707,20 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }
       }
 
-      const result = await response.json();
-      console.log('[Auth] Delete successful:', result);
+      let result;
+      try {
+        const contentTypeCheck = response.headers.get('content-type');
+        if (!contentTypeCheck || !contentTypeCheck.includes('application/json')) {
+          const textResponse = await response.text();
+          console.log('[Auth] Non-JSON delete response:', textResponse.substring(0, 200));
+          throw new Error('Server returned invalid response format');
+        }
+        result = await response.json();
+        console.log('[Auth] Delete successful:', result);
+      } catch (parseError) {
+        console.error('[Auth] Failed to parse delete response:', parseError);
+        throw new Error('Server returned invalid response format');
+      }
 
       await AsyncStorage.removeItem('currentUser');
       await AsyncStorage.removeItem('authToken');
@@ -742,7 +799,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         });
         
         if (signInResponse.ok) {
-          const result = await signInResponse.json();
+          let result;
+          try {
+            const contentTypeCheck = signInResponse.headers.get('content-type');
+            if (!contentTypeCheck || !contentTypeCheck.includes('application/json')) {
+              const textResponse = await signInResponse.text();
+              console.log('[OAuth] Non-JSON response:', textResponse.substring(0, 200));
+              throw new Error('Server returned invalid response format');
+            }
+            result = await signInResponse.json();
+          } catch (parseError) {
+            console.error('[OAuth] Failed to parse signin response:', parseError);
+            throw new Error('Server returned invalid response format');
+          }
           
           const userData: User = {
             id: result.user?.id || result.id,
@@ -772,7 +841,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           return { data: userData, error: null };
         }
         
-        const signInError = await signInResponse.json();
+        let signInError;
+        try {
+          const contentTypeCheck = signInResponse.headers.get('content-type');
+          if (contentTypeCheck && contentTypeCheck.includes('application/json')) {
+            signInError = await signInResponse.json();
+          } else {
+            const errorText = await signInResponse.text();
+            signInError = { error: errorText };
+          }
+        } catch (parseError) {
+          console.error('[OAuth] Failed to parse error response:', parseError);
+          signInError = { error: 'Authentication failed' };
+        }
         if (signInError.error?.includes('Invalid') || signInError.error?.includes('not found')) {
           console.log(`[OAuth] User not found, creating new account`);
           
@@ -791,11 +872,34 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           });
           
           if (!signUpResponse.ok) {
-            const errorData = await signUpResponse.json();
+            let errorData;
+            try {
+              const contentTypeCheck = signUpResponse.headers.get('content-type');
+              if (contentTypeCheck && contentTypeCheck.includes('application/json')) {
+                errorData = await signUpResponse.json();
+              } else {
+                const errorText = await signUpResponse.text();
+                errorData = { error: errorText };
+              }
+            } catch (parseError) {
+              errorData = { error: 'Failed to create account' };
+            }
             throw new Error(errorData.error || 'Failed to create account');
           }
           
-          const createResult = await signUpResponse.json();
+          let createResult;
+          try {
+            const contentTypeCheck = signUpResponse.headers.get('content-type');
+            if (!contentTypeCheck || !contentTypeCheck.includes('application/json')) {
+              const textResponse = await signUpResponse.text();
+              console.log('[OAuth] Non-JSON signup response:', textResponse.substring(0, 200));
+              throw new Error('Server returned invalid response format');
+            }
+            createResult = await signUpResponse.json();
+          } catch (parseError) {
+            console.error('[OAuth] Failed to parse signup response:', parseError);
+            throw new Error('Server returned invalid response format');
+          }
           
           const userData: User = {
             id: createResult.user?.id || createResult.id,

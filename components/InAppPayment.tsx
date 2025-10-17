@@ -229,16 +229,19 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
 
       let subscriptionData;
       try {
-        if (contentType && contentType.includes('application/json')) {
-          subscriptionData = await response.json();
-          console.log('[Payment] Success response:', subscriptionData);
-        } else {
+        const contentTypeSuccess = response.headers.get('content-type');
+        if (!contentTypeSuccess || !contentTypeSuccess.includes('application/json')) {
           const textResponse = await response.text();
           console.log('[Payment] Non-JSON success response:', textResponse.substring(0, 200));
           throw new Error('Server returned non-JSON response');
         }
-      } catch (parseError) {
+        subscriptionData = await response.json();
+        console.log('[Payment] Success response:', subscriptionData);
+      } catch (parseError: any) {
         console.error('[Payment] Error parsing success response:', parseError);
+        if (parseError.message?.includes('non-JSON')) {
+          throw parseError;
+        }
         throw new Error('Failed to process server response');
       }
 
