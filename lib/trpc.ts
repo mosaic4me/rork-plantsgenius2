@@ -3,6 +3,8 @@ import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -39,11 +41,26 @@ const customFetch = async (url: string, options: any) => {
   }, 30000);
   
   try {
+    let token: string | null = null;
+    try {
+      if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+        token = await AsyncStorage.getItem('authToken');
+      } else {
+        token = await SecureStore.getItemAsync('authToken');
+      }
+    } catch (error) {
+      console.log('[tRPC] Could not access auth token:', error);
+    }
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...(options?.headers || {}),
     };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
     
     if (Platform.OS === 'web') {
       headers['Origin'] = typeof window !== 'undefined' ? window.location.origin : 'https://localhost';

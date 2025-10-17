@@ -1,68 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Platform, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import { X } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPaymentDetails } from '@/utils/paymentHelpers';
 import type { PlanType, BillingCycle } from '@/utils/paymentHelpers';
-
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site').replace(/\/$/, '');
+import { trpcClient } from '@/lib/trpc';
 
 interface InAppPaymentProps {
   visible: boolean;
   onClose: () => void;
   planType: PlanType;
   billingCycle: BillingCycle;
-}
-
-async function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  maxRetries: number = 3,
-  initialDelay: number = 1000
-): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      console.log(`[Payment] Attempt ${attempt + 1}/${maxRetries} to ${url}`);
-      const response = await fetch(url, options);
-      
-      if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After');
-        const waitTime = retryAfter 
-          ? parseInt(retryAfter) * 1000 
-          : initialDelay * Math.pow(2, attempt);
-        
-        console.log(`[Payment] Rate limited. Waiting ${waitTime}ms before retry...`);
-        
-        if (attempt < maxRetries - 1) {
-          await delay(waitTime);
-          continue;
-        }
-      }
-      
-      return response;
-    } catch (error: any) {
-      console.log(`[Payment] Attempt ${attempt + 1} failed:`, error.message);
-      lastError = error;
-      
-      if (attempt < maxRetries - 1) {
-        const waitTime = initialDelay * Math.pow(2, attempt);
-        console.log(`[Payment] Waiting ${waitTime}ms before retry...`);
-        await delay(waitTime);
-      }
-    }
-  }
-  
-  throw lastError || new Error('Request failed after all retries');
 }
 
 export default function InAppPayment({ visible, onClose, planType, billingCycle }: InAppPaymentProps) {
@@ -164,99 +114,21 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
 
       const paymentReference = `${Platform.OS.toUpperCase()}_${Date.now()}_${planType}_${billingCycle}`;
 
-      let token: string | null = null;
-      try {
-        if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
-          token = await AsyncStorage.getItem('authToken');
-        } else {
-          token = await SecureStore.getItemAsync('authToken');
-        }
-      } catch (storageError) {
-        console.error('[Payment] Error accessing auth token:', storageError);
-        throw new Error('Failed to access authentication. Please sign in again.');
-      }
-      
-      if (!token) {
-        console.error('[Payment] No auth token found');
-        throw new Error('Your session has expired. Please sign in again to continue.');
-      }
+      console.log('[Payment] Creating subscription via tRPC...');
+      const subscriptionData = await trpcClient.subscription.createSubscription.mutate({
+        userId: user.id,
+        planType: planType,
+        billingCycle: billingCycle,
+        status: 'active',
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        paymentReference: paymentReference,
+        amount: paymentDetails?.amount || 0,
+        currency: paymentDetails?.currency || 'USD',
+        paymentMethod: paymentMethod,
+      });
 
-      const response = await fetchWithRetry(
-        `${API_BASE_URL}/api/subscription`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            planType: planType,
-            billingCycle: billingCycle,
-            status: 'active',
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            paymentReference: paymentReference,
-            amount: paymentDetails?.amount || 0,
-            currency: paymentDetails?.currency || 'USD',
-            paymentMethod: paymentMethod,
-          }),
-        },
-        3,
-        2000
-      );
-
-      const contentType = response.headers.get('content-type');
-      console.log('[Payment] Response status:', response.status);
-      console.log('[Payment] Response content-type:', contentType);
-
-      if (!response.ok) {
-        let errorMessage = 'Failed to create subscription';
-        try {
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            console.log('[Payment] Error JSON:', errorData);
-            errorMessage = errorData.error || errorData.message || errorMessage;
-          } else {
-            const errorText = await response.text();
-            console.log('[Payment] Error text response:', errorText.substring(0, 200));
-            
-            if (response.status === 429) {
-              errorMessage = 'Too many payment requests. Please wait a few moments and try again.';
-            } else if (response.status >= 500) {
-              errorMessage = 'Server is temporarily unavailable. Please try again in a few moments.';
-            } else {
-              errorMessage = `Server error (${response.status}): ${errorText.substring(0, 100)}`;
-            }
-          }
-        } catch (parseError) {
-          console.error('[Payment] Error parsing response:', parseError);
-          if (response.status === 429) {
-            errorMessage = 'Too many payment requests. Please wait a few moments and try again.';
-          } else {
-            errorMessage = `Request failed with status ${response.status}`;
-          }
-        }
-        throw new Error(errorMessage);
-      }
-
-      let subscriptionData;
-      try {
-        const contentTypeSuccess = response.headers.get('content-type');
-        if (!contentTypeSuccess || !contentTypeSuccess.includes('application/json')) {
-          const textResponse = await response.text();
-          console.log('[Payment] Non-JSON success response:', textResponse.substring(0, 200));
-          throw new Error('Server returned non-JSON response');
-        }
-        subscriptionData = await response.json();
-        console.log('[Payment] Success response:', subscriptionData);
-      } catch (parseError: any) {
-        console.error('[Payment] Error parsing success response:', parseError);
-        if (parseError.message?.includes('non-JSON')) {
-          throw parseError;
-        }
-        throw new Error('Failed to process server response');
-      }
+      console.log('[Payment] Subscription created successfully:', subscriptionData);
 
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -278,7 +150,9 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
       
       let errorMessage = error.message || 'Failed to activate subscription. Please try again.';
       
-      if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many')) {
+      if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
+        errorMessage = 'Your session has expired. Please sign in again.';
+      } else if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many')) {
         errorMessage = 'Too many payment requests. Please wait a few moments before trying again.';
       } else if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch')) {
         errorMessage = 'Network error. Please check your connection and try again.';

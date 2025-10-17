@@ -7,6 +7,7 @@ import { getUserProcedure } from "./routes/auth/get-user/route";
 import { updateUserProcedure } from "./routes/auth/update-user/route";
 import { deleteUserProcedure } from "./routes/auth/delete-user/route";
 import { getUserSubscriptionProcedure } from "./routes/subscription/get-subscription/route";
+import { createSubscriptionProcedure } from "./routes/subscription/create-subscription/route";
 import { getDailyScansRemainingProcedure } from "./routes/scans/get-daily-scans/route";
 import { incrementDailyScanProcedure } from "./routes/scans/increment-scan/route";
 import { healthCheckProcedure } from "./routes/health/check/route";
@@ -31,6 +32,7 @@ export const appRouter = createTRPCRouter({
   }),
   subscription: createTRPCRouter({
     getSubscription: getUserSubscriptionProcedure,
+    createSubscription: createSubscriptionProcedure,
   }),
   scans: createTRPCRouter({
     getDailyScans: getDailyScansRemainingProcedure,
