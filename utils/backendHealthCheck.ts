@@ -14,9 +14,9 @@ export interface HealthCheckResult {
 export async function checkBackendHealth(): Promise<HealthCheckResult> {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site';
   const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  const healthEndpoint = `${cleanUrl}/api/health`;
+  const authEndpoint = `${cleanUrl}/api/auth/signin`;
   
-  console.log('[Health Check] Starting health check for:', healthEndpoint);
+  console.log('[Health Check] Checking auth endpoint availability:', authEndpoint);
   console.log('[Health Check] Platform:', Platform.OS);
   
   const startTime = Date.now();
@@ -24,18 +24,19 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('[Health Check] Timeout triggered after 10 seconds');
+      console.log('[Health Check] Timeout triggered after 5 seconds');
       controller.abort();
-    }, 10000);
+    }, 5000);
     
-    const response = await fetch(healthEndpoint, {
-      method: 'GET',
+    const response = await fetch(authEndpoint, {
+      method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
       signal: controller.signal,
       cache: 'no-store' as RequestCache,
+      body: JSON.stringify({ email: 'health@check.test', password: 'test' }),
     });
     
     clearTimeout(timeoutId);
@@ -47,36 +48,35 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
       responseTime: `${responseTime}ms`,
     });
     
-    if (response.ok) {
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('application/json')) {
-        console.error('[Health Check] Backend returned non-JSON response:', contentType);
-        return {
-          isAvailable: false,
-          message: 'Backend returned invalid response format',
-          details: {
-            endpoint: healthEndpoint,
-            responseTime,
-            status: response.status,
-            error: 'Expected JSON, got ' + contentType,
-          },
-        };
-      }
-      const data = await response.json();
-      console.log('[Health Check] Backend is healthy:', data);
+    if (response.status === 401 || response.status === 400 || response.status === 200) {
+      console.log('[Health Check] Auth endpoint is responsive');
       
       return {
         isAvailable: true,
         message: 'Backend is online and responding',
         details: {
-          endpoint: healthEndpoint,
+          endpoint: authEndpoint,
           responseTime,
           status: response.status,
         },
       };
+    } else if (response.status === 404) {
+      const errorText = await response.text();
+      console.warn('[Health Check] Auth endpoint returned 404:', errorText.substring(0, 200));
+      
+      return {
+        isAvailable: false,
+        message: 'Authentication endpoint not found',
+        details: {
+          endpoint: authEndpoint,
+          responseTime,
+          status: response.status,
+          error: 'Auth endpoint returned 404 - API may not be properly configured',
+        },
+      };
     } else {
       const errorText = await response.text();
-      console.error('[Health Check] Backend returned error:', {
+      console.error('[Health Check] Unexpected response:', {
         status: response.status,
         body: errorText.substring(0, 200),
       });
@@ -85,7 +85,7 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
         isAvailable: false,
         message: `Backend returned ${response.status} error`,
         details: {
-          endpoint: healthEndpoint,
+          endpoint: authEndpoint,
           responseTime,
           status: response.status,
           error: errorText.substring(0, 200),
@@ -117,7 +117,7 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
       isAvailable: false,
       message,
       details: {
-        endpoint: healthEndpoint,
+        endpoint: authEndpoint,
         responseTime,
         error: error.message,
       },
@@ -140,14 +140,11 @@ export async function testBackendConnection(): Promise<void> {
   }
   
   if (!result.isAvailable) {
-    console.warn('[Backend Test] ⚠️ Backend is not available');
-    console.warn('[Backend Test] Recommendations:');
-    console.warn('[Backend Test] 1. Verify EXPO_PUBLIC_API_BASE_URL in .env');
-    console.warn('[Backend Test] 2. Check if backend is deployed at:', result.details?.endpoint);
-    console.warn('[Backend Test] 3. Test the URL in a browser to verify it works');
-    console.warn('[Backend Test] 4. Check for CORS configuration on the backend');
-    console.warn('[Backend Test] 5. Use Guest Mode to continue without backend');
+    console.warn('[Backend Test] ⚠️ Backend auth endpoint not responding as expected');
+    console.warn('[Backend Test] Error:', result.message);
+    console.warn('[Backend Test] Endpoint tested:', result.details?.endpoint);
+    console.warn('[Backend Test] Note: You can still use Guest Mode to explore the app');
   } else {
-    console.log('[Backend Test] ✅ Backend is operational');
+    console.log('[Backend Test] ✅ Backend auth endpoint is operational');
   }
 }
