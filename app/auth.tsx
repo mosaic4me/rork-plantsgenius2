@@ -129,6 +129,7 @@ export default function AuthScreen() {
                              msg.includes('unavailable') || 
                              msg.includes('guest mode') ||
                              msg.includes('backend') ||
+                             msg.includes('not available') ||
                              msg.includes('not deployed') ||
                              msg.includes('cannot connect') ||
                              msg.includes('network') ||
@@ -136,10 +137,10 @@ export default function AuthScreen() {
       
       Toast.show({
         type: isBackendError ? 'info' : 'error',
-        text1: isBackendError ? '⚠️ Service Unavailable' : 'Authentication Error',
-        text2: isBackendError ? 'The authentication server is not deployed yet. Please use Guest Mode to explore the app.' : errorMessage,
+        text1: isBackendError ? '⚠️ Service Not Available' : 'Authentication Error',
+        text2: isBackendError ? errorMessage : errorMessage,
         position: 'top',
-        visibilityTime: 4000,
+        visibilityTime: 5000,
       });
     } finally {
       setLoading(false);

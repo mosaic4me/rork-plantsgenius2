@@ -241,6 +241,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.log('[SignUp] Response ok:', response.ok);
       console.log('[SignUp] Response headers:', Object.fromEntries(response.headers.entries()));
       
+      if (response.status === 404) {
+        console.log('[SignUp] 404 Error - Backend endpoint not found');
+        throw new Error('BACKEND_NOT_CONFIGURED: The authentication service is not yet configured on the server.');
+      }
+      
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
         console.log('[SignUp] Error response content-type:', contentType);
@@ -248,11 +253,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         if (contentType?.includes('application/json')) {
           const errorData = await response.json();
           console.log('[SignUp] Error data:', errorData);
-          throw new Error(errorData.error || 'Failed to sign up');
+          throw new Error(errorData.error || errorData.message || 'Failed to sign up');
         } else {
           const errorText = await response.text();
           console.log('[SignUp] Error text (first 200 chars):', errorText.substring(0, 200));
-          throw new Error('Backend endpoint not found or returned invalid response');
+          throw new Error('Server returned an unexpected error');
         }
       }
       
@@ -295,8 +300,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         if (error.name === 'AbortError') {
           errorMessage = 'Connection timeout. Please check your internet connection and try again.';
-        } else if (msg.includes('Backend endpoint not found')) {
-          errorMessage = 'Authentication service is currently unavailable. Please try again later or contact support.';
+        } else if (msg.includes('BACKEND_NOT_CONFIGURED')) {
+          errorMessage = 'The authentication service is not available yet. Please try Guest Mode or contact support.';
+        } else if (msg.includes('Backend endpoint not found') || msg.includes('Server returned an unexpected error')) {
+          errorMessage = 'Authentication service is currently unavailable. Please try again later or use Guest Mode.';
         } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
           errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
         } else if (msg.toLowerCase().includes('already exists')) {
@@ -351,6 +358,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.log('[SignIn] Response ok:', response.ok);
       console.log('[SignIn] Response headers:', Object.fromEntries(response.headers.entries()));
       
+      if (response.status === 404) {
+        console.log('[SignIn] 404 Error - Backend endpoint not found');
+        throw new Error('BACKEND_NOT_CONFIGURED: The authentication service is not yet configured on the server.');
+      }
+      
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
         console.log('[SignIn] Error response content-type:', contentType);
@@ -358,11 +370,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         if (contentType?.includes('application/json')) {
           const errorData = await response.json();
           console.log('[SignIn] Error data:', errorData);
-          throw new Error(errorData.error || 'Failed to sign in');
+          throw new Error(errorData.error || errorData.message || 'Failed to sign in');
         } else {
           const errorText = await response.text();
           console.log('[SignIn] Error text (first 200 chars):', errorText.substring(0, 200));
-          throw new Error('Backend endpoint not found or returned invalid response');
+          throw new Error('Server returned an unexpected error');
         }
       }
       
@@ -405,8 +417,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         if (error.name === 'AbortError') {
           errorMessage = 'Connection timeout. Please check your internet connection and try again.';
-        } else if (msg.includes('Backend endpoint not found')) {
-          errorMessage = 'Authentication service is currently unavailable. Please try again later or contact support.';
+        } else if (msg.includes('BACKEND_NOT_CONFIGURED')) {
+          errorMessage = 'The authentication service is not available yet. Please try Guest Mode or contact support.';
+        } else if (msg.includes('Backend endpoint not found') || msg.includes('Server returned an unexpected error')) {
+          errorMessage = 'Authentication service is currently unavailable. Please try again later or use Guest Mode.';
         } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
           errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
         } else if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('invalid email or password')) {
@@ -718,10 +732,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       if (error?.message) {
         const msg = error.message;
         
-        if (msg.includes('Backend endpoint not found')) {
-          errorMessage = 'Authentication service is currently unavailable. Please try again later or contact support.';
+        if (msg.includes('BACKEND_NOT_CONFIGURED')) {
+          errorMessage = `The authentication service is not available yet. Please try Guest Mode or contact support.`;
+        } else if (msg.includes('Backend endpoint not found') || msg.includes('Server returned an unexpected error')) {
+          errorMessage = `Authentication service is currently unavailable. Please try again later or use Guest Mode.`;
         } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
-          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
+          errorMessage = `Cannot connect to authentication service. Please check your internet connection and try again.`;
         } else if (msg.toLowerCase().includes('user cancelled') || msg.toLowerCase().includes('cancelled')) {
           return { data: null, error: null };
         } else {
