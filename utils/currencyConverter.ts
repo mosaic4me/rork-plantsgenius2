@@ -107,15 +107,23 @@ async function fetchCurrencyRates(): Promise<CurrencyRates> {
       headers: {
         'Accept': 'application/json',
       },
-    });
+      timeout: 5000,
+    } as any);
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`);
     }
 
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.warn('[Currency] API returned non-JSON response');
+      throw new Error('Invalid API response content type');
+    }
+
     const data = await response.json();
 
     if (!data.data) {
+      console.warn('[Currency] API response missing data field');
       throw new Error('Invalid API response format');
     }
 
@@ -127,7 +135,7 @@ async function fetchCurrencyRates(): Promise<CurrencyRates> {
   } catch (error) {
     console.warn('[Currency] Unable to fetch live rates, using fallback rates:', error instanceof Error ? error.message : 'Unknown error');
     
-    return {
+    const fallbackRates = {
       USD: 1,
       EUR: 0.92,
       GBP: 0.79,
@@ -137,6 +145,11 @@ async function fetchCurrencyRates(): Promise<CurrencyRates> {
       KES: 129,
       EGP: 49,
     };
+    
+    cachedRates = fallbackRates;
+    lastFetchTime = now;
+    
+    return fallbackRates;
   }
 }
 

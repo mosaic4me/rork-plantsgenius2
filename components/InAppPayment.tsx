@@ -116,8 +116,22 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create subscription');
+        let errorMessage = 'Failed to create subscription';
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } else {
+            const errorText = await response.text();
+            console.log('[Payment] Non-JSON error response:', errorText.substring(0, 200));
+            errorMessage = `Server error (${response.status}): ${errorText.substring(0, 100)}`;
+          }
+        } catch (parseError) {
+          console.error('[Payment] Error parsing response:', parseError);
+          errorMessage = `Request failed with status ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
 
       await Notifications.scheduleNotificationAsync({
@@ -130,11 +144,19 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
       
       onClose();
     } catch (error: any) {
-      console.error('Error processing payment:', error);
+      console.error('[Payment] Error processing payment:', error);
+      console.error('[Payment] Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+      });
+      
+      const errorMessage = error.message || 'Failed to activate subscription. Please try again.';
+      
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Subscription Error',
-          body: error.message || 'Failed to activate subscription. Please try again.',
+          body: errorMessage,
         },
         trigger: null,
       });
