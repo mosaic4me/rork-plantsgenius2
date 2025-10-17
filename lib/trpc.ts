@@ -4,9 +4,9 @@ import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
 
-const requestQueue: (() => Promise<any>)[] = [];
+const requestQueue: { execute: () => Promise<any>, resolve: (value: any) => void, reject: (error: any) => void }[] = [];
 let isProcessingQueue = false;
-const REQUEST_DELAY = 2000;
+const REQUEST_DELAY = 1000;
 
 const processQueue = async () => {
   if (isProcessingQueue || requestQueue.length === 0) {
@@ -19,11 +19,15 @@ const processQueue = async () => {
     const request = requestQueue.shift();
     if (request) {
       try {
-        await request();
+        const result = await request.execute();
+        request.resolve(result);
       } catch (error) {
         console.error('[Queue] Request failed:', error);
+        request.reject(error);
       }
-      await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+      if (requestQueue.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+      }
     }
   }
 
@@ -58,15 +62,15 @@ const baseUrl = getBaseUrl();
 console.log('[tRPC] 📡 Final tRPC endpoint:', `${baseUrl}/api/trpc`);
 
 const customFetch = async (url: string, options: any) => {
-  return new Promise((resolve, reject) => {
-    requestQueue.push(async () => {
+  return new Promise((outerResolve, outerReject) => {
+    const execute = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('[tRPC] ⏱️ Request timeout triggered');
+        controller.abort();
+      }, 30000);
+      
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          console.log('[tRPC] ⏱️ Request timeout triggered');
-          controller.abort();
-        }, 30000);
-        
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -94,58 +98,59 @@ const customFetch = async (url: string, options: any) => {
           if (response.status === 404) {
             console.error('[tRPC] ❌ 404 - Backend endpoint not found');
             console.error('[tRPC] Verify backend is deployed at:', baseUrl);
-            reject(new Error('BACKEND_NOT_AVAILABLE'));
-            return;
+            throw new Error('BACKEND_NOT_AVAILABLE');
           }
           
           if (response.status === 500) {
             console.error('[tRPC] ❌ 500 - Server error');
-            reject(new Error('BACKEND_ERROR'));
-            return;
+            throw new Error('BACKEND_ERROR');
           }
           
           if (response.status === 429) {
-            reject(new Error('RATE_LIMITED'));
-            return;
+            throw new Error('RATE_LIMITED');
           }
           
           if (response.status === 0 || response.status >= 400) {
             console.error('[tRPC] ❌ HTTP Error:', response.status);
-            reject(new Error(`HTTP_ERROR_${response.status}`));
-            return;
+            throw new Error(`HTTP_ERROR_${response.status}`);
           }
           
           if (contentType?.includes('text/html')) {
             console.error('[tRPC] ❌ Received HTML instead of JSON');
-            reject(new Error('BACKEND_NOT_AVAILABLE'));
-            return;
+            throw new Error('BACKEND_NOT_AVAILABLE');
           }
         }
 
-        resolve(response);
+        return response;
       } catch (error: any) {
+        clearTimeout(timeoutId);
+        
         if (error.name === 'AbortError') {
           console.error('[tRPC] ⏱️ Request timed out after 30 seconds');
-          reject(new Error('BACKEND_TIMEOUT'));
-          return;
+          throw new Error('BACKEND_TIMEOUT');
         }
         
         if (error.message?.includes('Failed to fetch')) {
           console.error('[tRPC] ❌ Network error - failed to fetch');
-          reject(new Error('BACKEND_NETWORK_ERROR'));
-          return;
+          throw new Error('BACKEND_NETWORK_ERROR');
         }
         
         if (error.message?.includes('Network request failed')) {
           console.error('[tRPC] ❌ Network request failed');
-          reject(new Error('BACKEND_NETWORK_ERROR'));
-          return;
+          throw new Error('BACKEND_NETWORK_ERROR');
         }
         
         console.error('[tRPC] ❌ Unexpected error:', error);
-        reject(error);
+        throw error;
       }
+    };
+    
+    requestQueue.push({
+      execute,
+      resolve: outerResolve,
+      reject: outerReject,
     });
+    
     processQueue();
   });
 };
