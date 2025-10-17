@@ -386,13 +386,7 @@ export default function AuthScreen() {
             <Text style={styles.guestButtonText}>Continue as Guest</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.diagnosticButton}
-            onPress={() => router.push('/backend-diagnostic' as any)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.diagnosticButtonText}>Backend Diagnostics</Text>
-          </TouchableOpacity>
+
         </View>
       </ScrollView>
     </View>

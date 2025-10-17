@@ -119,6 +119,7 @@ export default function ScanScreen() {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
+        exif: false,
       });
 
       if (photo && photo.uri) {
@@ -127,9 +128,13 @@ export default function ScanScreen() {
         const permanentUri = await copyImageToPermanentStorage(photo.uri);
         console.log('Image saved to permanent storage:', permanentUri);
         
-        if (Platform.OS === 'ios') {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        const delay = Platform.select({
+          android: 300,
+          ios: 100,
+          default: 0,
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
         
         router.push({
           pathname: '/analyzing' as any,
@@ -220,9 +225,13 @@ export default function ScanScreen() {
         const permanentUri = await copyImageToPermanentStorage(result.assets[0].uri);
         console.log('Image saved to permanent storage:', permanentUri);
         
-        if (Platform.OS === 'ios') {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        const delay = Platform.select({
+          android: 300,
+          ios: 100,
+          default: 0,
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
         
         router.push({
           pathname: '/analyzing' as any,

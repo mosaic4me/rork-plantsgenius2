@@ -25,7 +25,7 @@ import Colors from '@/constants/colors';
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { stats } = useApp();
-  const { profile, subscription, signOut, dailyScansRemaining, deleteAccount, isGuest, addEarnedScan, canEarnMoreScans, adClicksToday } = useAuth();
+  const { user, profile, subscription, signOut, dailyScansRemaining, deleteAccount, isGuest, addEarnedScan, canEarnMoreScans, adClicksToday } = useAuth();
   const [showPayment, setShowPayment] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRewardedAd, setShowRewardedAd] = useState(false);
@@ -186,8 +186,8 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <User size={40} color={Colors.white} />
           </View>
-          <Text style={styles.name}>{profile?.full_name || 'Plant Enthusiast'}</Text>
-          <Text style={styles.email}>{profile?.email || 'user@plantgenius.com'}</Text>
+          <Text style={styles.name}>{user?.fullName || profile?.full_name || 'Plant Enthusiast'}</Text>
+          <Text style={styles.email}>{user?.email || profile?.email || 'user@plantgenius.com'}</Text>
           <View style={styles.subscriptionBadge}>
             <Crown size={16} color={subscription ? Colors.warning : Colors.gray.medium} />
             <Text style={styles.subscriptionText}>

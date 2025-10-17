@@ -59,11 +59,19 @@ interface PlantNetResponse {
 
 export async function copyImageToPermanentStorage(imageUri: string): Promise<string> {
   try {
-    console.log('Copying image to permanent storage, original URI:', imageUri);
+    console.log('[ImageCopy] Starting copy, original URI:', imageUri);
     
     if (Platform.OS === 'web') {
+      console.log('[ImageCopy] Web platform, returning original URI');
       return imageUri;
     }
+    
+    const sourceInfo = await FileSystem.getInfoAsync(imageUri);
+    if (!sourceInfo.exists) {
+      console.error('[ImageCopy] Source file does not exist:', imageUri);
+      throw new Error('Source image file not found');
+    }
+    console.log('[ImageCopy] Source file confirmed exists, size:', sourceInfo.size);
     
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
@@ -71,48 +79,73 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
     const fileName = `plant_${timestamp}_${random}.${extension}`;
     const permanentPath = `${FileSystem.documentDirectory}${fileName}`;
     
-    console.log('Attempting to copy from:', imageUri);
-    console.log('Copying to:', permanentPath);
+    console.log('[ImageCopy] Target path:', permanentPath);
+    
+    if (Platform.OS === 'android') {
+      console.log('[ImageCopy] Android detected, using base64 method for reliability');
+      try {
+        const base64 = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        console.log('[ImageCopy] Base64 read successful, length:', base64.length);
+        
+        await FileSystem.writeAsStringAsync(permanentPath, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        console.log('[ImageCopy] Base64 write successful');
+        
+        const verifyInfo = await FileSystem.getInfoAsync(permanentPath);
+        if (verifyInfo.exists) {
+          console.log('[ImageCopy] Verification successful, file exists at:', permanentPath);
+          return permanentPath;
+        }
+      } catch (base64Error) {
+        console.error('[ImageCopy] Base64 method failed:', base64Error);
+      }
+    }
     
     try {
+      console.log('[ImageCopy] Attempting direct copy');
       await FileSystem.copyAsync({
         from: imageUri,
         to: permanentPath,
       });
       
       const verifyInfo = await FileSystem.getInfoAsync(permanentPath);
-      console.log('Verification - file exists:', verifyInfo.exists);
-      
       if (verifyInfo.exists) {
-        console.log('Successfully saved to permanent storage:', permanentPath);
+        console.log('[ImageCopy] Direct copy successful:', permanentPath);
         return permanentPath;
       }
     } catch (copyError) {
-      console.log('Direct copy failed, trying alternative method:', copyError);
-    }
-    
-    try {
-      const base64 = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      console.error('[ImageCopy] Direct copy failed:', copyError);
       
-      await FileSystem.writeAsStringAsync(permanentPath, base64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      
-      const verifyInfo = await FileSystem.getInfoAsync(permanentPath);
-      if (verifyInfo.exists) {
-        console.log('Successfully saved via base64 method:', permanentPath);
-        return permanentPath;
+      if (Platform.OS === 'ios') {
+        console.log('[ImageCopy] iOS detected, trying base64 fallback');
+        try {
+          const base64 = await FileSystem.readAsStringAsync(imageUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          await FileSystem.writeAsStringAsync(permanentPath, base64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          const verifyInfo = await FileSystem.getInfoAsync(permanentPath);
+          if (verifyInfo.exists) {
+            console.log('[ImageCopy] Base64 fallback successful:', permanentPath);
+            return permanentPath;
+          }
+        } catch (base64Error) {
+          console.error('[ImageCopy] Base64 fallback failed:', base64Error);
+        }
       }
-    } catch (base64Error) {
-      console.error('Base64 method also failed:', base64Error);
     }
     
-    console.log('All copy methods failed, returning original URI');
+    console.log('[ImageCopy] All copy methods failed, returning original URI');
     return imageUri;
   } catch (error: any) {
-    console.error('Error in copyImageToPermanentStorage:', error);
+    console.error('[ImageCopy] Critical error:', error);
+    console.error('[ImageCopy] Error message:', error.message);
     return imageUri;
   }
 }
