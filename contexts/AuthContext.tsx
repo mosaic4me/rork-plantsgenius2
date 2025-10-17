@@ -677,32 +677,34 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
-        console.log('[Auth] Error response content-type:', contentType);
+        
+        if (response.status === 429) {
+          throw new Error('TOO_MANY_REQUESTS');
+        }
         
         try {
           if (contentType?.includes('application/json')) {
             const errorData = await response.json();
-            console.error('[Auth] Delete failed with JSON:', errorData);
-            
             const errorMessage = errorData.error || errorData.message || 'Failed to delete account';
+            
+            if (errorMessage.toLowerCase().includes('too many requests') || errorMessage.toLowerCase().includes('rate limit')) {
+              throw new Error('TOO_MANY_REQUESTS');
+            }
+            
             throw new Error(errorMessage);
           } else {
             const errorText = await response.text();
-            console.error('[Auth] Delete failed with text:', errorText);
             
-            if (response.status === 429 || errorText.toLowerCase().includes('too many requests')) {
-              throw new Error('TOO_MANY_REQUESTS: You have made too many requests. Please wait a few minutes and try again.');
+            if (errorText.toLowerCase().includes('too many requests') || errorText.toLowerCase().includes('rate limit')) {
+              throw new Error('TOO_MANY_REQUESTS');
             }
             
             throw new Error(errorText || 'Failed to delete account');
           }
         } catch (parseError) {
-          console.error('[Auth] Failed to parse error response:', parseError);
-          
-          if (response.status === 429) {
-            throw new Error('TOO_MANY_REQUESTS: You have made too many requests. Please wait a few minutes and try again.');
+          if (parseError instanceof Error && parseError.message === 'TOO_MANY_REQUESTS') {
+            throw parseError;
           }
-          
           throw new Error(`Server returned status ${response.status}. Please try again.`);
         }
       }
@@ -736,10 +738,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       return { error: null };
     } catch (error: any) {
-      console.error('[Auth] Error deleting account:', error);
-      console.error('[Auth] Error message:', error?.message);
-      console.error('[Auth] Error stack:', error?.stack);
-      
       let errorMessage = 'Unable to delete account at this time.';
       
       if (error?.message) {
@@ -747,9 +745,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         
         if (error.name === 'AbortError') {
           errorMessage = 'Request timeout. Please check your internet connection and try again.';
-        } else if (msg.includes('TOO_MANY_REQUESTS')) {
-          errorMessage = 'You have made too many requests. Please wait a few minutes and try again.';
-        } else if (msg.toLowerCase().includes('too many requests') || msg.toLowerCase().includes('rate limit')) {
+        } else if (msg === 'TOO_MANY_REQUESTS') {
           errorMessage = 'You have made too many requests. Please wait a few minutes and try again.';
         } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
           errorMessage = 'Cannot connect to server. Please check your internet connection and try again.';
@@ -757,10 +753,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           errorMessage = 'Service is temporarily unavailable. Please try again later.';
         } else if (msg.toLowerCase().includes('not authenticated') || msg.toLowerCase().includes('unauthorized')) {
           errorMessage = 'Your session has expired. Please sign in again.';
-        } else {
+        } else if (!msg.includes('TOO_MANY_REQUESTS')) {
           errorMessage = msg;
         }
       }
+      
+      console.log('[Auth] Delete account error:', errorMessage);
       
       return { error: errorMessage };
     }
