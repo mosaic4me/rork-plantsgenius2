@@ -13,7 +13,7 @@ export interface HealthCheckResult {
 
 export async function checkBackendHealth(): Promise<HealthCheckResult> {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site';
-  const healthEndpoint = `${baseUrl}/api/health`;
+  const healthEndpoint = `${baseUrl}/api`;
   
   console.log('[Health Check] Starting health check for:', healthEndpoint);
   console.log('[Health Check] Platform:', Platform.OS);
@@ -31,8 +31,6 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'trpc-batch-mode': 'stream',
       },
       signal: controller.signal,
     });
