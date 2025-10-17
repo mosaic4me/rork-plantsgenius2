@@ -18,28 +18,37 @@ export interface OAuthUser {
   idToken?: string;
 }
 
+export function isGoogleOAuthConfigured(): boolean {
+  let clientId = GOOGLE_WEB_CLIENT_ID;
+  if (Platform.OS === 'ios') {
+    clientId = GOOGLE_IOS_CLIENT_ID;
+  } else if (Platform.OS === 'android') {
+    clientId = GOOGLE_ANDROID_CLIENT_ID;
+  }
+  return !!(clientId && !clientId.includes('your_google'));
+}
+
 export async function signInWithGoogle(): Promise<OAuthUser | null> {
   try {
+    if (!isGoogleOAuthConfigured()) {
+      throw new Error('Google Sign-In is not configured yet. Please use email/password authentication or Guest Mode.');
+    }
+
     const redirectUri = AuthSession.makeRedirectUri({
       scheme: 'plantsgenius',
     });
 
     console.log('[Google OAuth] Redirect URI:', redirectUri);
 
-    let clientId = GOOGLE_WEB_CLIENT_ID;
+    let clientId = GOOGLE_WEB_CLIENT_ID || '';
     if (Platform.OS === 'ios') {
-      clientId = GOOGLE_IOS_CLIENT_ID;
+      clientId = GOOGLE_IOS_CLIENT_ID || '';
     } else if (Platform.OS === 'android') {
-      clientId = GOOGLE_ANDROID_CLIENT_ID;
+      clientId = GOOGLE_ANDROID_CLIENT_ID || '';
     }
 
     console.log('[Google OAuth] Platform:', Platform.OS);
     console.log('[Google OAuth] Client ID available:', !!clientId);
-    console.log('[Google OAuth] Client ID value:', clientId);
-
-    if (!clientId || clientId.includes('your_google')) {
-      throw new Error('Google Sign-In is not configured yet. Please configure the Google OAuth client IDs in your .env file or use email/password authentication.');
-    }
 
     const discovery = {
       authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',

@@ -18,6 +18,7 @@ import Toast from 'react-native-toast-message';
 import { Mail, Lock, User } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/colors';
+import { isGoogleOAuthConfigured } from '@/utils/oauthHelpers';
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
@@ -29,11 +30,13 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showAppleSignIn, setShowAppleSignIn] = useState(false);
+  const [showGoogleSignIn, setShowGoogleSignIn] = useState(false);
 
   React.useEffect(() => {
     if (Platform.OS === 'ios') {
       AppleAuthentication.isAvailableAsync().then(setShowAppleSignIn);
     }
+    setShowGoogleSignIn(isGoogleOAuthConfigured());
   }, []);
 
   const handleAuth = async () => {
@@ -143,13 +146,13 @@ export default function AuthScreen() {
       const { data, error } = await signInWithOAuth(provider);
       
       if (error) {
-        const isConfigError = error.message?.includes('not configured');
+        console.error(`[OAuth] ${provider} sign in error:`, error);
         Toast.show({
-          type: isConfigError ? 'info' : 'error',
-          text1: isConfigError ? '⚠️ Configuration Required' : `${provider === 'google' ? 'Google' : 'Apple'} Sign In Failed`,
-          text2: error.message,
+          type: 'error',
+          text1: `${provider === 'google' ? 'Google' : 'Apple'} Sign In Failed`,
+          text2: error.message || 'Please try again',
           position: 'top',
-          visibilityTime: isConfigError ? 4000 : 3000,
+          visibilityTime: 3000,
         });
         return;
       }
@@ -165,13 +168,13 @@ export default function AuthScreen() {
         router.replace('/(tabs)' as any);
       }
     } catch (error: any) {
-      const isConfigError = error?.message?.includes('not configured');
+      console.error(`[OAuth] ${provider} sign in error:`, error);
       Toast.show({
-        type: isConfigError ? 'info' : 'error',
-        text1: isConfigError ? '⚠️ Configuration Required' : 'Error',
+        type: 'error',
+        text1: 'Error',
         text2: error.message || 'Something went wrong',
         position: 'top',
-        visibilityTime: isConfigError ? 4000 : 2000,
+        visibilityTime: 2000,
       });
     } finally {
       setOAuthLoading(false);
@@ -296,49 +299,53 @@ export default function AuthScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <View style={styles.oauthContainer}>
-            <TouchableOpacity
-              style={[styles.oauthButton, styles.googleButton, (loading || oauthLoading) && styles.buttonDisabled, Platform.OS === 'ios' && showAppleSignIn && styles.oauthButtonHalf]}
-              onPress={() => handleOAuthSignIn('google')}
-              disabled={loading || oauthLoading}
-              activeOpacity={0.8}
-            >
-              {oauthLoading ? (
-                <ActivityIndicator color={Colors.black} />
-              ) : (
-                <>
-                  <Image
-                    source={{ uri: 'https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png' }}
-                    style={styles.googleIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.oauthButtonText}>Sign Up with Google</Text>
-                </>
+          {(showGoogleSignIn || showAppleSignIn) && (
+            <View style={styles.oauthContainer}>
+              {showGoogleSignIn && (
+                <TouchableOpacity
+                  style={[styles.oauthButton, styles.googleButton, (loading || oauthLoading) && styles.buttonDisabled, Platform.OS === 'ios' && showAppleSignIn && styles.oauthButtonHalf]}
+                  onPress={() => handleOAuthSignIn('google')}
+                  disabled={loading || oauthLoading}
+                  activeOpacity={0.8}
+                >
+                  {oauthLoading ? (
+                    <ActivityIndicator color={Colors.black} />
+                  ) : (
+                    <>
+                      <Image
+                        source={{ uri: 'https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png' }}
+                        style={styles.googleIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.oauthButtonText}>Sign Up with Google</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
 
-            {showAppleSignIn && Platform.OS === 'ios' && (
-              <TouchableOpacity
-                style={[styles.oauthButton, styles.appleButton, styles.oauthButtonHalf, (loading || oauthLoading) && styles.buttonDisabled]}
-                onPress={() => handleOAuthSignIn('apple')}
-                disabled={loading || oauthLoading}
-                activeOpacity={0.8}
-              >
-                {oauthLoading ? (
-                  <ActivityIndicator color={Colors.white} />
-                ) : (
-                  <>
-                    <Image
-                      source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' }}
-                      style={styles.appleIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.appleButtonText}>Sign In with Apple</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
+              {showAppleSignIn && Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={[styles.oauthButton, styles.appleButton, styles.oauthButtonHalf, (loading || oauthLoading) && styles.buttonDisabled]}
+                  onPress={() => handleOAuthSignIn('apple')}
+                  disabled={loading || oauthLoading}
+                  activeOpacity={0.8}
+                >
+                  {oauthLoading ? (
+                    <ActivityIndicator color={Colors.white} />
+                  ) : (
+                    <>
+                      <Image
+                        source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' }}
+                        style={styles.appleIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.appleButtonText}>Sign In with Apple</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.switchButton}
