@@ -601,28 +601,53 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const token = await getAuthToken();
       if (!token) return { error: 'Not authenticated' };
 
-      const response = await fetch(`${API_BASE_URL}/api/user/${user.id}`, {
-        method: 'DELETE',
+      console.log('[Auth] Attempting to delete account for user:', user.id);
+      
+      const deleteUrl = `${API_BASE_URL}/api/trpc/auth.deleteUser?batch=1`;
+      console.log('[Auth] Delete URL:', deleteUrl);
+      
+      const response = await fetch(deleteUrl, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          "0": {
+            userId: user.id
+          }
+        }),
       });
 
+      console.log('[Auth] Delete response status:', response.status);
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Auth] Delete failed with response:', errorText);
         throw new Error('Failed to delete account');
       }
+
+      const result = await response.json();
+      console.log('[Auth] Delete successful:', result);
 
       await AsyncStorage.removeItem('currentUser');
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('tokenExpiry');
+      await AsyncStorage.removeItem('authProvider');
+      await AsyncStorage.removeItem('guestMode');
+      
       setUser(null);
       setProfile(null);
       setSubscription(null);
+      setAuthProvider(null);
+      setIsGuest(false);
+      
       return { error: null };
     } catch (error: any) {
       console.error('[Auth] Error deleting account:', error);
-      return { error };
+      console.error('[Auth] Error message:', error?.message);
+      console.error('[Auth] Error stack:', error?.stack);
+      return { error: error?.message || 'Failed to delete account' };
     }
   }, [user, getAuthToken]);
 
