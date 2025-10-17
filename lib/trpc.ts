@@ -83,6 +83,7 @@ const customFetch = async (url: string, options: any) => {
       if (response.status === 404) {
         console.error('[tRPC] ❌ 404 - Backend endpoint not found');
         console.error('[tRPC] Verify backend is deployed at:', baseUrl);
+        console.log('[tRPC] ℹ️ Falling back to direct API calls');
         throw new Error('BACKEND_NOT_AVAILABLE');
       }
       
@@ -102,6 +103,7 @@ const customFetch = async (url: string, options: any) => {
       
       if (contentType?.includes('text/html')) {
         console.error('[tRPC] ❌ Received HTML instead of JSON');
+        console.log('[tRPC] ℹ️ Falling back to direct API calls');
         throw new Error('BACKEND_NOT_AVAILABLE');
       }
     }
@@ -117,11 +119,13 @@ const customFetch = async (url: string, options: any) => {
     
     if (error.message?.includes('Failed to fetch')) {
       console.error('[tRPC] ❌ Network error - failed to fetch');
+      console.log('[tRPC] ℹ️ Falling back to direct API calls');
       throw new Error('BACKEND_NETWORK_ERROR');
     }
     
     if (error.message?.includes('Network request failed')) {
       console.error('[tRPC] ❌ Network request failed');
+      console.log('[tRPC] ℹ️ Falling back to direct API calls');
       throw new Error('BACKEND_NETWORK_ERROR');
     }
     

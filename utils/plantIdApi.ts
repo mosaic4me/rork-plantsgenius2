@@ -153,13 +153,10 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
 const PLANTNET_API_KEY = process.env.EXPO_PUBLIC_PLANTNET_API_KEY;
 const PLANTNET_API_URL = process.env.EXPO_PUBLIC_PLANTNET_API_URL || 'https://my-api.plantnet.org/v2/identify/all';
 
-if (!PLANTNET_API_KEY) {
-  console.error('[PlantID] CRITICAL: EXPO_PUBLIC_PLANTNET_API_KEY not configured in .env file');
-}
-
 export async function identifyPlant(imageUri: string): Promise<PlantIdentification> {
   if (!PLANTNET_API_KEY) {
-    throw new Error('Plant identification service not configured. Please contact support.');
+    console.error('[PlantID] EXPO_PUBLIC_PLANTNET_API_KEY not configured in .env file');
+    throw new Error('Plant identification service not available. The API key is missing or invalid. Please check your configuration.');
   }
 
   try {
