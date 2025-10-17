@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
@@ -17,6 +17,53 @@ interface InAppPaymentProps {
   billingCycle: BillingCycle;
 }
 
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 3,
+  initialDelay: number = 1000
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`[Payment] Attempt ${attempt + 1}/${maxRetries} to ${url}`);
+      const response = await fetch(url, options);
+      
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const waitTime = retryAfter 
+          ? parseInt(retryAfter) * 1000 
+          : initialDelay * Math.pow(2, attempt);
+        
+        console.log(`[Payment] Rate limited. Waiting ${waitTime}ms before retry...`);
+        
+        if (attempt < maxRetries - 1) {
+          await delay(waitTime);
+          continue;
+        }
+      }
+      
+      return response;
+    } catch (error: any) {
+      console.log(`[Payment] Attempt ${attempt + 1} failed:`, error.message);
+      lastError = error;
+      
+      if (attempt < maxRetries - 1) {
+        const waitTime = initialDelay * Math.pow(2, attempt);
+        console.log(`[Payment] Waiting ${waitTime}ms before retry...`);
+        await delay(waitTime);
+      }
+    }
+  }
+  
+  throw lastError || new Error('Request failed after all retries');
+}
+
 export default function InAppPayment({ visible, onClose, planType, billingCycle }: InAppPaymentProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -26,6 +73,8 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
     symbol: string;
     formattedAmount: string;
   } | null>(null);
+  const lastRequestTimeRef = useRef<number>(0);
+  const isProcessingRef = useRef<boolean>(false);
 
   const loadPaymentDetails = useCallback(async () => {
     try {
@@ -55,6 +104,28 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
   }, [visible, planType, billingCycle, loadPaymentDetails]);
 
   const handlePayment = async () => {
+    if (isProcessingRef.current) {
+      console.log('[Payment] Already processing a payment request');
+      return;
+    }
+
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTimeRef.current;
+    const minRequestInterval = 3000;
+    
+    if (timeSinceLastRequest < minRequestInterval) {
+      const waitTime = minRequestInterval - timeSinceLastRequest;
+      console.log(`[Payment] Throttling request. Please wait ${Math.ceil(waitTime / 1000)} seconds`);
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Please Wait',
+          body: `Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again`,
+        },
+        trigger: null,
+      });
+      return;
+    }
+
     if (!user) {
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -76,6 +147,8 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
       return;
     }
 
+    isProcessingRef.current = true;
+    lastRequestTimeRef.current = now;
     setLoading(true);
     try {
       const paymentMethod = Platform.OS === 'ios' ? 'Apple Pay' : 'Google Pay';
@@ -95,25 +168,30 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/subscription`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetchWithRetry(
+        `${API_BASE_URL}/api/subscription`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            planType: planType,
+            billingCycle: billingCycle,
+            status: 'active',
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            paymentReference: paymentReference,
+            amount: paymentDetails?.amount || 0,
+            currency: paymentDetails?.currency || 'USD',
+            paymentMethod: paymentMethod,
+          }),
         },
-        body: JSON.stringify({
-          userId: user.id,
-          planType: planType,
-          billingCycle: billingCycle,
-          status: 'active',
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          paymentReference: paymentReference,
-          amount: paymentDetails?.amount || 0,
-          currency: paymentDetails?.currency || 'USD',
-          paymentMethod: paymentMethod,
-        }),
-      });
+        3,
+        2000
+      );
 
       const contentType = response.headers.get('content-type');
       console.log('[Payment] Response status:', response.status);
@@ -129,11 +207,22 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
           } else {
             const errorText = await response.text();
             console.log('[Payment] Error text response:', errorText.substring(0, 200));
-            errorMessage = `Server error (${response.status}): ${errorText.substring(0, 100)}`;
+            
+            if (response.status === 429) {
+              errorMessage = 'Too many payment requests. Please wait a few moments and try again.';
+            } else if (response.status >= 500) {
+              errorMessage = 'Server is temporarily unavailable. Please try again in a few moments.';
+            } else {
+              errorMessage = `Server error (${response.status}): ${errorText.substring(0, 100)}`;
+            }
           }
         } catch (parseError) {
           console.error('[Payment] Error parsing response:', parseError);
-          errorMessage = `Request failed with status ${response.status}`;
+          if (response.status === 429) {
+            errorMessage = 'Too many payment requests. Please wait a few moments and try again.';
+          } else {
+            errorMessage = `Request failed with status ${response.status}`;
+          }
         }
         throw new Error(errorMessage);
       }
@@ -171,7 +260,13 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
         type: typeof error,
       });
       
-      const errorMessage = error.message || 'Failed to activate subscription. Please try again.';
+      let errorMessage = error.message || 'Failed to activate subscription. Please try again.';
+      
+      if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many')) {
+        errorMessage = 'Too many payment requests. Please wait a few moments before trying again.';
+      } else if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
       
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -182,6 +277,7 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
       });
     } finally {
       setLoading(false);
+      isProcessingRef.current = false;
     }
   };
 
