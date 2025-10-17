@@ -5,7 +5,24 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { signInWithGoogle, signInWithApple, type OAuthUser } from '@/utils/oauthHelpers';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site').replace(/\/$/, '');
+const getApiBaseUrl = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const origin = window.location.origin;
+    console.log('[API] Using local API at:', origin);
+    return origin;
+  }
+  
+  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (envUrl) {
+    console.log('[API] Using env API URL:', envUrl);
+    return envUrl.replace(/\/$/, '');
+  }
+  
+  console.log('[API] Defaulting to production API');
+  return 'https://api.plantsgenius.site';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const TOKEN_EXPIRY_DAYS = 30;
 
@@ -273,26 +290,37 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       const signupUrl = `${API_BASE_URL}/api/auth/signup`;
       console.log('[SignUp] Full signup URL:', signupUrl);
+      console.log('[SignUp] Window location:', Platform.OS === 'web' ? (typeof window !== 'undefined' ? window.location.href : 'N/A') : 'Not web');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         console.log('[SignUp] Request timeout - aborting');
         controller.abort();
-      }, 15000);
+      }, 30000);
       
-      const response = await fetch(signupUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          email: trimmedEmail,
-          password,
-          fullName: trimmedFullName,
-        }),
-      });
+      let response;
+      try {
+        console.log('[SignUp] Sending fetch request...');
+        response = await fetch(signupUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            email: trimmedEmail,
+            password,
+            fullName: trimmedFullName,
+          }),
+        });
+        console.log('[SignUp] Fetch completed');
+      } catch (fetchError: any) {
+        console.error('[SignUp] Fetch failed:', fetchError);
+        console.error('[SignUp] Fetch error name:', fetchError?.name);
+        console.error('[SignUp] Fetch error message:', fetchError?.message);
+        throw fetchError;
+      }
       
       clearTimeout(timeoutId);
       
@@ -396,11 +424,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const msg = error.message;
         
         if (error.name === 'AbortError') {
-          errorMessage = 'Connection timeout. Please check your internet connection and try again.';
+          errorMessage = 'Connection timeout. The server is taking too long to respond. Please try again or use Guest Mode.';
         } else if (msg.includes('BACKEND_UNAVAILABLE')) {
           errorMessage = 'Backend service is not available. Please use Guest Mode or contact support.';
-        } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
-          errorMessage = 'Cannot connect to server. Please check your internet connection and try again.';
+        } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed') || msg.includes('NetworkError')) {
+          errorMessage = `Cannot connect to authentication server at ${API_BASE_URL}. This might be due to:\n\n1. Server is temporarily down\n2. Network connectivity issues\n3. CORS/SSL certificate issues\n\nPlease try:\n• Check your internet connection\n• Use Guest Mode to continue\n• Contact support if the issue persists`;
         } else if (msg.toLowerCase().includes('already exists')) {
           errorMessage = 'This email is already registered. Please sign in or use a different email.';
         } else if (msg.toLowerCase().includes('invalid email')) {
@@ -427,25 +455,36 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       const signinUrl = `${API_BASE_URL}/api/auth/signin`;
       console.log('[SignIn] Full signin URL:', signinUrl);
+      console.log('[SignIn] Window location:', Platform.OS === 'web' ? (typeof window !== 'undefined' ? window.location.href : 'N/A') : 'Not web');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         console.log('[SignIn] Request timeout - aborting');
         controller.abort();
-      }, 15000);
+      }, 30000);
       
-      const response = await fetch(signinUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          email: trimmedEmail,
-          password,
-        }),
-      });
+      let response;
+      try {
+        console.log('[SignIn] Sending fetch request...');
+        response = await fetch(signinUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            email: trimmedEmail,
+            password,
+          }),
+        });
+        console.log('[SignIn] Fetch completed');
+      } catch (fetchError: any) {
+        console.error('[SignIn] Fetch failed:', fetchError);
+        console.error('[SignIn] Fetch error name:', fetchError?.name);
+        console.error('[SignIn] Fetch error message:', fetchError?.message);
+        throw fetchError;
+      }
       
       clearTimeout(timeoutId);
       
@@ -571,12 +610,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const msg = error.message;
         
         if (error.name === 'AbortError') {
-          errorMessage = 'Connection timeout. Please check your internet connection and try again.';
-
+          errorMessage = 'Connection timeout. The server is taking too long to respond. Please try again or use Guest Mode.';
         } else if (msg.includes('BACKEND_UNAVAILABLE')) {
           errorMessage = 'Backend service is not available. Please use Guest Mode or contact support.';
-        } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
-          errorMessage = 'Cannot connect to server. Please check your internet connection and try again.';
+        } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed') || msg.includes('NetworkError')) {
+          errorMessage = `Cannot connect to authentication server at ${API_BASE_URL}. This might be due to:\n\n1. Server is temporarily down\n2. Network connectivity issues\n3. CORS/SSL certificate issues\n\nPlease try:\n• Check your internet connection\n• Use Guest Mode to continue\n• Contact support if the issue persists`;
         } else if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('invalid email or password')) {
           errorMessage = 'Invalid email or password. Please try again.';
         } else if (msg.toLowerCase().includes('user not found')) {
