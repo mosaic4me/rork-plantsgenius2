@@ -4,36 +4,6 @@ import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
 
-const requestQueue: { execute: () => Promise<any>, resolve: (value: any) => void, reject: (error: any) => void }[] = [];
-let isProcessingQueue = false;
-const REQUEST_DELAY = 1000;
-
-const processQueue = async () => {
-  if (isProcessingQueue || requestQueue.length === 0) {
-    return;
-  }
-
-  isProcessingQueue = true;
-
-  while (requestQueue.length > 0) {
-    const request = requestQueue.shift();
-    if (request) {
-      try {
-        const result = await request.execute();
-        request.resolve(result);
-      } catch (error) {
-        console.error('[Queue] Request failed:', error);
-        request.reject(error);
-      }
-      if (requestQueue.length > 0) {
-        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
-      }
-    }
-  }
-
-  isProcessingQueue = false;
-};
-
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
@@ -62,97 +32,85 @@ const baseUrl = getBaseUrl();
 console.log('[tRPC] 📡 Final tRPC endpoint:', `${baseUrl}/api/trpc`);
 
 const customFetch = async (url: string, options: any) => {
-  return new Promise((outerResolve, outerReject) => {
-    const execute = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log('[tRPC] ⏱️ Request timeout triggered');
-        controller.abort();
-      }, 30000);
-      
-      try {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...(options?.headers || {}),
-        };
-        
-        if (Platform.OS === 'web') {
-          headers['Origin'] = typeof window !== 'undefined' ? window.location.origin : 'https://localhost';
-        }
-        
-        const fetchOptions = {
-          ...options,
-          signal: controller.signal,
-          headers,
-          mode: 'cors' as RequestMode,
-        };
-        
-        const response = await fetch(url, fetchOptions);
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          const contentType = response.headers.get('content-type');
-          
-          if (response.status === 404) {
-            console.error('[tRPC] ❌ 404 - Backend endpoint not found');
-            console.error('[tRPC] Verify backend is deployed at:', baseUrl);
-            throw new Error('BACKEND_NOT_AVAILABLE');
-          }
-          
-          if (response.status === 500) {
-            console.error('[tRPC] ❌ 500 - Server error');
-            throw new Error('BACKEND_ERROR');
-          }
-          
-          if (response.status === 429) {
-            throw new Error('RATE_LIMITED');
-          }
-          
-          if (response.status === 0 || response.status >= 400) {
-            console.error('[tRPC] ❌ HTTP Error:', response.status);
-            throw new Error(`HTTP_ERROR_${response.status}`);
-          }
-          
-          if (contentType?.includes('text/html')) {
-            console.error('[tRPC] ❌ Received HTML instead of JSON');
-            throw new Error('BACKEND_NOT_AVAILABLE');
-          }
-        }
-
-        return response;
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        
-        if (error.name === 'AbortError') {
-          console.error('[tRPC] ⏱️ Request timed out after 30 seconds');
-          throw new Error('BACKEND_TIMEOUT');
-        }
-        
-        if (error.message?.includes('Failed to fetch')) {
-          console.error('[tRPC] ❌ Network error - failed to fetch');
-          throw new Error('BACKEND_NETWORK_ERROR');
-        }
-        
-        if (error.message?.includes('Network request failed')) {
-          console.error('[tRPC] ❌ Network request failed');
-          throw new Error('BACKEND_NETWORK_ERROR');
-        }
-        
-        console.error('[tRPC] ❌ Unexpected error:', error);
-        throw error;
-      }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.log('[tRPC] ⏱️ Request timeout triggered');
+    controller.abort();
+  }, 30000);
+  
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(options?.headers || {}),
     };
     
-    requestQueue.push({
-      execute,
-      resolve: outerResolve,
-      reject: outerReject,
-    });
+    if (Platform.OS === 'web') {
+      headers['Origin'] = typeof window !== 'undefined' ? window.location.origin : 'https://localhost';
+    }
     
-    processQueue();
-  });
+    const fetchOptions = {
+      ...options,
+      signal: controller.signal,
+      headers,
+      mode: 'cors' as RequestMode,
+    };
+    
+    const response = await fetch(url, fetchOptions);
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type');
+      
+      if (response.status === 404) {
+        console.error('[tRPC] ❌ 404 - Backend endpoint not found');
+        console.error('[tRPC] Verify backend is deployed at:', baseUrl);
+        throw new Error('BACKEND_NOT_AVAILABLE');
+      }
+      
+      if (response.status === 500) {
+        console.error('[tRPC] ❌ 500 - Server error');
+        throw new Error('BACKEND_ERROR');
+      }
+      
+      if (response.status === 429) {
+        throw new Error('RATE_LIMITED');
+      }
+      
+      if (response.status === 0 || response.status >= 400) {
+        console.error('[tRPC] ❌ HTTP Error:', response.status);
+        throw new Error(`HTTP_ERROR_${response.status}`);
+      }
+      
+      if (contentType?.includes('text/html')) {
+        console.error('[tRPC] ❌ Received HTML instead of JSON');
+        throw new Error('BACKEND_NOT_AVAILABLE');
+      }
+    }
+
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      console.error('[tRPC] ⏱️ Request timed out after 30 seconds');
+      throw new Error('BACKEND_TIMEOUT');
+    }
+    
+    if (error.message?.includes('Failed to fetch')) {
+      console.error('[tRPC] ❌ Network error - failed to fetch');
+      throw new Error('BACKEND_NETWORK_ERROR');
+    }
+    
+    if (error.message?.includes('Network request failed')) {
+      console.error('[tRPC] ❌ Network request failed');
+      throw new Error('BACKEND_NETWORK_ERROR');
+    }
+    
+    console.error('[tRPC] ❌ Unexpected error:', error);
+    throw error;
+  }
 };
 
 export const trpcClient = trpc.createClient({

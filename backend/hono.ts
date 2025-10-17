@@ -6,6 +6,7 @@ import { createContext } from "./trpc/create-context";
 import { findUserByEmail, createUser } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import validator from 'validator';
 
 const app = new Hono();
 
@@ -76,19 +77,31 @@ app.post("/api/auth/signup", async (c) => {
       return c.json({ error: 'Invalid field types: email, password, and fullName must be strings' }, 400);
     }
 
-    if (password.length < 6) {
-      console.log('[REST SignUp] Password too short');
-      return c.json({ error: 'Password must be at least 6 characters long' }, 400);
-    }
+    const trimmedEmail = email.trim().toLowerCase();
+    const sanitizedName = validator.escape(fullName.trim());
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!validator.isEmail(trimmedEmail)) {
       console.log('[REST SignUp] Invalid email format');
       return c.json({ error: 'Invalid email format' }, 400);
     }
 
-    console.log('[REST SignUp] Checking for existing user:', email);
-    const existingUser = await findUserByEmail(email);
+    if (password.length < 8) {
+      console.log('[REST SignUp] Password too short');
+      return c.json({ error: 'Password must be at least 8 characters with uppercase letter and number' }, 400);
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      console.log('[REST SignUp] Password missing uppercase');
+      return c.json({ error: 'Password must contain at least one uppercase letter' }, 400);
+    }
+
+    if (!/[0-9]/.test(password)) {
+      console.log('[REST SignUp] Password missing number');
+      return c.json({ error: 'Password must contain at least one number' }, 400);
+    }
+
+    console.log('[REST SignUp] Checking for existing user:', trimmedEmail);
+    const existingUser = await findUserByEmail(trimmedEmail);
     if (existingUser) {
       console.log('[REST SignUp] User already exists');
       return c.json({ error: 'User already exists with this email' }, 400);
@@ -98,12 +111,17 @@ app.post("/api/auth/signup", async (c) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     console.log('[REST SignUp] Creating user in database...');
-    const mongoUser = await createUser(email, hashedPassword, fullName);
+    const mongoUser = await createUser(trimmedEmail, hashedPassword, sanitizedName);
     
+    if (!process.env.JWT_SECRET) {
+      console.error('[REST SignUp] CRITICAL: JWT_SECRET not configured');
+      return c.json({ error: 'Server configuration error' }, 500);
+    }
+
     console.log('[REST SignUp] Generating JWT token...');
     const token = jwt.sign(
       { userId: mongoUser._id!.toString(), email: mongoUser.email },
-      process.env.JWT_SECRET || '2a804b2aea4c1f663e7e82e532abe6cb43c9d8d467bb83e11af5be7c665f342d',
+      process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
 
@@ -168,9 +186,14 @@ app.post("/api/auth/signin", async (c) => {
       return c.json({ error: 'Invalid email or password' }, 401);
     }
 
+    if (!process.env.JWT_SECRET) {
+      console.error('[REST SignIn] CRITICAL: JWT_SECRET not configured');
+      return c.json({ error: 'Server configuration error' }, 500);
+    }
+
     const token = jwt.sign(
       { userId: user._id!.toString(), email: user.email },
-      process.env.JWT_SECRET || '2a804b2aea4c1f663e7e82e532abe6cb43c9d8d467bb83e11af5be7c665f342d',
+      process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
 

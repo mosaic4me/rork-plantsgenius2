@@ -1,6 +1,8 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, AppStateStatus, Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { signInWithGoogle, signInWithApple, type OAuthUser } from '@/utils/oauthHelpers';
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site').replace(/\/$/, '');
@@ -41,16 +43,30 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [adClicksToday, setAdClicksToday] = useState(0);
 
   const getAuthToken = useCallback(async () => {
-    const token = await AsyncStorage.getItem('authToken');
-    const tokenExpiry = await AsyncStorage.getItem('tokenExpiry');
+    let token: string | null = null;
+    let tokenExpiry: string | null = null;
+    
+    if (Platform.OS === 'web') {
+      token = await AsyncStorage.getItem('authToken');
+      tokenExpiry = await AsyncStorage.getItem('tokenExpiry');
+    } else {
+      token = await SecureStore.getItemAsync('authToken');
+      tokenExpiry = await SecureStore.getItemAsync('tokenExpiry');
+    }
     
     if (token && tokenExpiry) {
       const expiryDate = new Date(tokenExpiry);
       if (new Date() < expiryDate) {
         return token;
       }
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('tokenExpiry');
+      if (Platform.OS === 'web') {
+        await AsyncStorage.multiRemove(['authToken', 'tokenExpiry']);
+      } else {
+        await Promise.all([
+          SecureStore.deleteItemAsync('authToken'),
+          SecureStore.deleteItemAsync('tokenExpiry')
+        ]);
+      }
     }
     return null;
   }, []);
@@ -138,7 +154,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const loadDailyScans = useCallback(async (userId?: string) => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       
       if (userId) {
         const token = await getAuthToken();
@@ -172,8 +188,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const storedCount = await AsyncStorage.getItem('dailyScanCount');
         
         if (storedDate !== today) {
-          await AsyncStorage.setItem('lastScanResetDate', today);
-          await AsyncStorage.setItem('dailyScanCount', '0');
+          await AsyncStorage.multiSet([
+            ['lastScanResetDate', today],
+            ['dailyScanCount', '0']
+          ]);
           setDailyScansRemaining(2);
           setLastResetDate(today);
         } else {
@@ -220,9 +238,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     };
 
     initAuth();
+  }, []);
 
-    const midnightCheckInterval = setInterval(async () => {
-      const today = new Date().toISOString().split('T')[0];
+  useEffect(() => {
+    const checkDailyReset = async () => {
+      const today = new Date().toLocaleDateString('en-CA');
       if (lastResetDate && lastResetDate !== today) {
         if (user) {
           await loadDailyScans(user.id);
@@ -230,12 +250,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           await loadDailyScans();
         }
       }
-    }, 60000);
+    };
+
+    const subscription = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        checkDailyReset();
+      }
+    });
 
     return () => {
-      clearInterval(midnightCheckInterval);
+      subscription.remove();
     };
-  }, [getAuthToken, loadProfile, loadSubscription, loadDailyScans, lastResetDate, user]);
+  }, [lastResetDate, user]);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     try {
@@ -338,17 +364,24 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + TOKEN_EXPIRY_DAYS);
       
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('tokenExpiry', expiryDate.toISOString());
-      await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-      await AsyncStorage.removeItem('guestMode');
+      if (Platform.OS === 'web') {
+        await AsyncStorage.multiSet([
+          ['authToken', token],
+          ['tokenExpiry', expiryDate.toISOString()],
+          ['currentUser', JSON.stringify(userData)]
+        ]);
+        await AsyncStorage.removeItem('guestMode');
+      } else {
+        await Promise.all([
+          SecureStore.setItemAsync('authToken', token),
+          SecureStore.setItemAsync('tokenExpiry', expiryDate.toISOString()),
+          AsyncStorage.setItem('currentUser', JSON.stringify(userData)),
+          AsyncStorage.removeItem('guestMode')
+        ]);
+      }
       
       setUser(userData);
       setIsGuest(false);
-      
-      loadProfile(userData.id);
-      loadSubscription(userData.id);
-      loadDailyScans(userData.id);
       
       return { data: userData, error: null };
     } catch (error: any) {
@@ -383,7 +416,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       return { data: null, error: { message: errorMessage } };
     }
-  }, [loadProfile, loadSubscription, loadDailyScans]);
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
@@ -506,17 +539,24 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + TOKEN_EXPIRY_DAYS);
       
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('tokenExpiry', expiryDate.toISOString());
-      await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-      await AsyncStorage.removeItem('guestMode');
+      if (Platform.OS === 'web') {
+        await AsyncStorage.multiSet([
+          ['authToken', token],
+          ['tokenExpiry', expiryDate.toISOString()],
+          ['currentUser', JSON.stringify(userData)]
+        ]);
+        await AsyncStorage.removeItem('guestMode');
+      } else {
+        await Promise.all([
+          SecureStore.setItemAsync('authToken', token),
+          SecureStore.setItemAsync('tokenExpiry', expiryDate.toISOString()),
+          AsyncStorage.setItem('currentUser', JSON.stringify(userData)),
+          AsyncStorage.removeItem('guestMode')
+        ]);
+      }
       
       setUser(userData);
       setIsGuest(false);
-      
-      loadProfile(userData.id);
-      loadSubscription(userData.id);
-      loadDailyScans(userData.id);
       
       return { data: userData, error: null };
     } catch (error: any) {
@@ -552,15 +592,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       
       return { data: null, error: { message: errorMessage } };
     }
-  }, [loadProfile, loadSubscription, loadDailyScans]);
+  }, []);
 
   const signOut = useCallback(async () => {
     try {
-      await AsyncStorage.removeItem('currentUser');
-      await AsyncStorage.removeItem('guestMode');
-      await AsyncStorage.removeItem('authProvider');
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('tokenExpiry');
+      if (Platform.OS === 'web') {
+        await AsyncStorage.multiRemove(['currentUser', 'guestMode', 'authProvider', 'authToken', 'tokenExpiry']);
+      } else {
+        await Promise.all([
+          AsyncStorage.multiRemove(['currentUser', 'guestMode', 'authProvider']),
+          SecureStore.deleteItemAsync('authToken').catch(() => {}),
+          SecureStore.deleteItemAsync('tokenExpiry').catch(() => {})
+        ]);
+      }
       setUser(null);
       setProfile(null);
       setSubscription(null);
@@ -607,7 +651,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const incrementDailyScan = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       
       if (user) {
         const token = await getAuthToken();
@@ -635,14 +679,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const addEarnedScan = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       
       const storedDate = await AsyncStorage.getItem('lastAdClickDate');
       const storedClicks = await AsyncStorage.getItem('adClicksToday');
       
       if (storedDate !== today) {
-        await AsyncStorage.setItem('lastAdClickDate', today);
-        await AsyncStorage.setItem('adClicksToday', '1');
+        await AsyncStorage.multiSet([
+          ['lastAdClickDate', today],
+          ['adClicksToday', '1']
+        ]);
         setAdClicksToday(1);
       } else {
         const clicks = parseInt(storedClicks || '0', 10);
@@ -661,7 +707,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const canEarnMoreScans = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       const storedDate = await AsyncStorage.getItem('lastAdClickDate');
       const storedClicks = await AsyncStorage.getItem('adClicksToday');
       
@@ -770,11 +816,15 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         throw new Error('Server returned invalid response format');
       }
 
-      await AsyncStorage.removeItem('currentUser');
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('tokenExpiry');
-      await AsyncStorage.removeItem('authProvider');
-      await AsyncStorage.removeItem('guestMode');
+      if (Platform.OS === 'web') {
+        await AsyncStorage.multiRemove(['currentUser', 'authToken', 'tokenExpiry', 'authProvider', 'guestMode']);
+      } else {
+        await Promise.all([
+          AsyncStorage.multiRemove(['currentUser', 'authProvider', 'guestMode']),
+          SecureStore.deleteItemAsync('authToken').catch(() => {}),
+          SecureStore.deleteItemAsync('tokenExpiry').catch(() => {})
+        ]);
+      }
       
       setUser(null);
       setProfile(null);
@@ -868,19 +918,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           const expiryDate = new Date();
           expiryDate.setDate(expiryDate.getDate() + TOKEN_EXPIRY_DAYS);
           
-          await AsyncStorage.setItem('authToken', token);
-          await AsyncStorage.setItem('tokenExpiry', expiryDate.toISOString());
-          await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-          await AsyncStorage.setItem('authProvider', provider);
-          await AsyncStorage.removeItem('guestMode');
+          if (Platform.OS === 'web') {
+            await AsyncStorage.multiSet([
+              ['authToken', token],
+              ['tokenExpiry', expiryDate.toISOString()],
+              ['currentUser', JSON.stringify(userData)],
+              ['authProvider', provider]
+            ]);
+            await AsyncStorage.removeItem('guestMode');
+          } else {
+            await Promise.all([
+              SecureStore.setItemAsync('authToken', token),
+              SecureStore.setItemAsync('tokenExpiry', expiryDate.toISOString()),
+              AsyncStorage.multiSet([
+                ['currentUser', JSON.stringify(userData)],
+                ['authProvider', provider]
+              ]),
+              AsyncStorage.removeItem('guestMode')
+            ]);
+          }
           
           setUser(userData);
           setAuthProvider(provider);
           setIsGuest(false);
-          
-          loadProfile(userData.id);
-          loadSubscription(userData.id);
-          loadDailyScans(userData.id);
           
           return { data: userData, error: null };
         }
@@ -956,19 +1016,29 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           const expiryDate = new Date();
           expiryDate.setDate(expiryDate.getDate() + TOKEN_EXPIRY_DAYS);
           
-          await AsyncStorage.setItem('authToken', token);
-          await AsyncStorage.setItem('tokenExpiry', expiryDate.toISOString());
-          await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-          await AsyncStorage.setItem('authProvider', provider);
-          await AsyncStorage.removeItem('guestMode');
+          if (Platform.OS === 'web') {
+            await AsyncStorage.multiSet([
+              ['authToken', token],
+              ['tokenExpiry', expiryDate.toISOString()],
+              ['currentUser', JSON.stringify(userData)],
+              ['authProvider', provider]
+            ]);
+            await AsyncStorage.removeItem('guestMode');
+          } else {
+            await Promise.all([
+              SecureStore.setItemAsync('authToken', token),
+              SecureStore.setItemAsync('tokenExpiry', expiryDate.toISOString()),
+              AsyncStorage.multiSet([
+                ['currentUser', JSON.stringify(userData)],
+                ['authProvider', provider]
+              ]),
+              AsyncStorage.removeItem('guestMode')
+            ]);
+          }
           
           setUser(userData);
           setAuthProvider(provider);
           setIsGuest(false);
-          
-          loadProfile(userData.id);
-          loadSubscription(userData.id);
-          loadDailyScans(userData.id);
           
           return { data: userData, error: null };
         }
@@ -1003,7 +1073,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         error: { message: errorMessage } 
       };
     }
-  }, [loadProfile, loadSubscription, loadDailyScans]);
+  }, []);
 
   const continueAsGuest = useCallback(async () => {
     try {
