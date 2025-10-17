@@ -3,9 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trpcClient } from '@/lib/trpc';
 import { signInWithGoogle, signInWithApple, type OAuthUser } from '@/utils/oauthHelpers';
-import { checkBackendHealth } from '@/utils/backendHealthCheck';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site';
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site').replace(/\/$/, '');
 
 interface Profile {
   id: string;
@@ -242,20 +241,24 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const trimmedFullName = fullName.trim();
       
       console.log('[SignUp] Attempting sign up for:', trimmedEmail);
+      console.log('[SignUp] API Base URL:', API_BASE_URL);
       
-      console.log('[SignUp] Checking backend health...');
-      const healthCheck = await checkBackendHealth();
-      if (!healthCheck.isAvailable) {
-        console.error('[SignUp] Backend is not available:', healthCheck.message);
-        throw new Error('BACKEND_NOT_AVAILABLE');
-      }
-      console.log('[SignUp] Backend is healthy, proceeding with signup');
+      const signupUrl = `${API_BASE_URL}/api/auth/signup`;
+      console.log('[SignUp] Full signup URL:', signupUrl);
       
-      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('[SignUp] Request timeout - aborting');
+        controller.abort();
+      }, 15000);
+      
+      const response = await fetch(signupUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        signal: controller.signal,
         body: JSON.stringify({
           email: trimmedEmail,
           password,
@@ -263,9 +266,25 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }),
       });
       
+      clearTimeout(timeoutId);
+      
+      console.log('[SignUp] Response status:', response.status);
+      console.log('[SignUp] Response ok:', response.ok);
+      console.log('[SignUp] Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to sign up');
+        const contentType = response.headers.get('content-type');
+        console.log('[SignUp] Error response content-type:', contentType);
+        
+        if (contentType?.includes('application/json')) {
+          const errorData = await response.json();
+          console.log('[SignUp] Error data:', errorData);
+          throw new Error(errorData.error || 'Failed to sign up');
+        } else {
+          const errorText = await response.text();
+          console.log('[SignUp] Error text (first 200 chars):', errorText.substring(0, 200));
+          throw new Error('Backend endpoint not found or returned invalid response');
+        }
       }
       
       const result = await response.json();
@@ -289,21 +308,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.error('[SignUp] Error:', error);
       console.error('[SignUp] Error message:', error?.message);
       console.error('[SignUp] Error name:', error?.name);
+      console.error('[SignUp] Error stack:', error?.stack);
       
       let errorMessage = 'Unable to create account at this time.';
       
       if (error?.message) {
         const msg = error.message;
         
-        if (msg === 'BACKEND_NOT_AVAILABLE' || msg === 'BACKEND_NOT_CONFIGURED' || msg === 'BACKEND_TIMEOUT' || msg === 'BACKEND_NETWORK_ERROR' || msg === 'BACKEND_ERROR') {
-          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
-        } else if (msg.includes('backend') || 
-            msg.includes('not available') || 
-            msg.includes('not deployed') ||
-            msg.includes('cannot connect') ||
-            msg.includes('network') ||
-            msg.includes('timeout') ||
-            msg.toLowerCase().includes('guest mode')) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Connection timeout. Please check your internet connection and try again.';
+        } else if (msg.includes('Backend endpoint not found')) {
+          errorMessage = 'Authentication service is currently unavailable. Please try again later or contact support.';
+        } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
           errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
         } else if (msg.toLowerCase().includes('already exists')) {
           errorMessage = 'This email is already registered. Please sign in or use a different email.';
@@ -327,29 +343,49 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const trimmedEmail = email.trim().toLowerCase();
       
       console.log('[SignIn] Attempting sign in for:', trimmedEmail);
+      console.log('[SignIn] API Base URL:', API_BASE_URL);
       
-      console.log('[SignIn] Checking backend health...');
-      const healthCheck = await checkBackendHealth();
-      if (!healthCheck.isAvailable) {
-        console.error('[SignIn] Backend is not available:', healthCheck.message);
-        throw new Error('BACKEND_NOT_AVAILABLE');
-      }
-      console.log('[SignIn] Backend is healthy, proceeding with signin');
+      const signinUrl = `${API_BASE_URL}/api/auth/signin`;
+      console.log('[SignIn] Full signin URL:', signinUrl);
       
-      const response = await fetch(`${API_BASE_URL}/api/auth/signin`, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('[SignIn] Request timeout - aborting');
+        controller.abort();
+      }, 15000);
+      
+      const response = await fetch(signinUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        signal: controller.signal,
         body: JSON.stringify({
           email: trimmedEmail,
           password,
         }),
       });
       
+      clearTimeout(timeoutId);
+      
+      console.log('[SignIn] Response status:', response.status);
+      console.log('[SignIn] Response ok:', response.ok);
+      console.log('[SignIn] Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to sign in');
+        const contentType = response.headers.get('content-type');
+        console.log('[SignIn] Error response content-type:', contentType);
+        
+        if (contentType?.includes('application/json')) {
+          const errorData = await response.json();
+          console.log('[SignIn] Error data:', errorData);
+          throw new Error(errorData.error || 'Failed to sign in');
+        } else {
+          const errorText = await response.text();
+          console.log('[SignIn] Error text (first 200 chars):', errorText.substring(0, 200));
+          throw new Error('Backend endpoint not found or returned invalid response');
+        }
       }
       
       const result = await response.json();
@@ -373,21 +409,18 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.error('[SignIn] Error:', error);
       console.error('[SignIn] Error message:', error?.message);
       console.error('[SignIn] Error name:', error?.name);
+      console.error('[SignIn] Error stack:', error?.stack);
       
       let errorMessage = 'Unable to sign in at this time.';
       
       if (error?.message) {
         const msg = error.message;
         
-        if (msg === 'BACKEND_NOT_AVAILABLE' || msg === 'BACKEND_NOT_CONFIGURED' || msg === 'BACKEND_TIMEOUT' || msg === 'BACKEND_NETWORK_ERROR' || msg === 'BACKEND_ERROR') {
-          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
-        } else if (msg.includes('backend') || 
-            msg.includes('not available') || 
-            msg.includes('not deployed') ||
-            msg.includes('cannot connect') ||
-            msg.includes('network') ||
-            msg.includes('timeout') ||
-            msg.toLowerCase().includes('guest mode')) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Connection timeout. Please check your internet connection and try again.';
+        } else if (msg.includes('Backend endpoint not found')) {
+          errorMessage = 'Authentication service is currently unavailable. Please try again later or contact support.';
+        } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
           errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
         } else if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('invalid email or password')) {
           errorMessage = 'Invalid email or password. Please try again.';
@@ -545,10 +578,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.log(`[OAuth] ${provider} sign in successful, creating/fetching user`);
       
       try {
-        const signInResponse = await fetch(`${API_BASE_URL}/api/auth/signin`, {
+        const signinUrl = `${API_BASE_URL}/api/auth/signin`;
+        const signInResponse = await fetch(signinUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
           },
           body: JSON.stringify({
             email: oauthUser.email,
@@ -582,10 +617,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         if (signInError.error?.includes('Invalid') || signInError.error?.includes('not found')) {
           console.log(`[OAuth] User not found, creating new account`);
           
-          const signUpResponse = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+          const signupUrl = `${API_BASE_URL}/api/auth/signup`;
+          const signUpResponse = await fetch(signupUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Accept': 'application/json',
             },
             body: JSON.stringify({
               email: oauthUser.email,
@@ -635,14 +672,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       if (error?.message) {
         const msg = error.message;
         
-        if (msg === 'BACKEND_NOT_AVAILABLE' || msg === 'BACKEND_NOT_CONFIGURED' || msg === 'BACKEND_TIMEOUT' || msg === 'BACKEND_NETWORK_ERROR' || msg === 'BACKEND_ERROR') {
-          errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
-        } else if (msg.includes('backend') || 
-            msg.includes('not available') || 
-            msg.includes('not deployed') ||
-            msg.includes('cannot connect') ||
-            msg.includes('network') ||
-            msg.includes('timeout')) {
+        if (msg.includes('Backend endpoint not found')) {
+          errorMessage = 'Authentication service is currently unavailable. Please try again later or contact support.';
+        } else if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
           errorMessage = 'Cannot connect to authentication service. Please check your internet connection and try again.';
         } else if (msg.toLowerCase().includes('user cancelled') || msg.toLowerCase().includes('cancelled')) {
           return { data: null, error: null };

@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { checkBackendHealth, type HealthCheckResult } from '@/utils/backendHealthCheck';
+import { testBackendConnection } from '@/utils/testBackendConnection';
 
 interface DiagnosticTest {
   name: string;
@@ -39,6 +40,10 @@ export default function BackendDiagnosticScreen() {
 
   const runDiagnostics = async () => {
     setIsRunning(true);
+    
+    console.log('\n[Diagnostic] Starting comprehensive backend test...');
+    await testBackendConnection();
+    console.log('[Diagnostic] Comprehensive test complete\n');
 
     updateTest('Environment Variables', { status: 'running' });
     await new Promise(resolve => setTimeout(resolve, 500));

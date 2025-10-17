@@ -13,7 +13,8 @@ export interface HealthCheckResult {
 
 export async function checkBackendHealth(): Promise<HealthCheckResult> {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site';
-  const healthEndpoint = `${baseUrl}/api/health`;
+  const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const healthEndpoint = `${cleanUrl}/api/health`;
   
   console.log('[Health Check] Starting health check for:', healthEndpoint);
   console.log('[Health Check] Platform:', Platform.OS);
@@ -31,8 +32,10 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
       signal: controller.signal,
+      cache: 'no-store' as RequestCache,
     });
     
     clearTimeout(timeoutId);
@@ -45,6 +48,20 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
     });
     
     if (response.ok) {
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        console.error('[Health Check] Backend returned non-JSON response:', contentType);
+        return {
+          isAvailable: false,
+          message: 'Backend returned invalid response format',
+          details: {
+            endpoint: healthEndpoint,
+            responseTime,
+            status: response.status,
+            error: 'Expected JSON, got ' + contentType,
+          },
+        };
+      }
       const data = await response.json();
       console.log('[Health Check] Backend is healthy:', data);
       
