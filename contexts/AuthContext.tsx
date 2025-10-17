@@ -437,28 +437,43 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         const contentType = response.headers.get('content-type');
         console.log('[SignIn] Error response content-type:', contentType);
         
+        let errorText = '';
+        let errorData: any = null;
+        
         try {
           if (contentType?.includes('application/json')) {
-            const errorData = await response.json();
+            errorData = await response.json();
             console.log('[SignIn] Error data:', errorData);
             throw new Error(errorData.error || errorData.message || 'Failed to sign in');
           } else {
-            const errorText = await response.text();
+            errorText = await response.text();
             console.log('[SignIn] Error text (first 500 chars):', errorText.substring(0, 500));
             
             if (errorText.toLowerCase().includes('too many requests') || errorText.toLowerCase().includes('rate limit')) {
               throw new Error('TOO_MANY_REQUESTS: You have made too many requests. Please wait a few minutes and try again.');
             }
             
-            if (errorText.toLowerCase().includes('invalid email or password')) {
+            if (errorText.toLowerCase().includes('invalid email or password') || errorText.toLowerCase().includes('invalid credentials')) {
               throw new Error('Invalid email or password');
             }
             
-            const statusMsg = `Server returned status ${response.status}`;
-            throw new Error(`${statusMsg}: ${errorText.substring(0, 100) || 'Unknown error'}`);
+            if (errorText.toLowerCase().includes('user not found')) {
+              throw new Error('No account found with this email. Please sign up first.');
+            }
+            
+            if (errorText) {
+              throw new Error(`Authentication failed: ${errorText.substring(0, 150)}`);
+            }
+            
+            throw new Error(`Authentication failed with status ${response.status}. Please try again.`);
           }
         } catch (parseError) {
-          if (parseError instanceof Error && (parseError.message.includes('TOO_MANY_REQUESTS') || parseError.message.includes('Invalid email or password') || parseError.message.includes('Server returned status'))) {
+          if (parseError instanceof Error && (
+            parseError.message.includes('TOO_MANY_REQUESTS') || 
+            parseError.message.includes('Invalid email or password') || 
+            parseError.message.includes('Authentication failed') ||
+            parseError.message.includes('No account found')
+          )) {
             throw parseError;
           }
           console.log('[SignIn] Failed to parse error response:', parseError);
