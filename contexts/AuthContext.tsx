@@ -44,6 +44,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const loadProfile = useCallback(async (userId: string) => {
     try {
+      await new Promise(resolve => setTimeout(resolve, 100));
       const user = await trpcClient.auth.getUser.query({ userId });
       if (user) {
         setProfile({
@@ -53,13 +54,19 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           avatar_url: null,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('RATE_LIMITED')) {
+        console.warn('[Auth] Rate limited - will retry profile load');
+        setTimeout(() => loadProfile(userId), 2000);
+        return;
+      }
       console.error('Error loading profile:', error);
     }
   }, []);
 
   const loadSubscription = useCallback(async (userId: string) => {
     try {
+      await new Promise(resolve => setTimeout(resolve, 200));
       const sub = await trpcClient.subscription.getSubscription.query({ userId });
       if (sub) {
         setSubscription({
@@ -70,7 +77,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           end_date: sub.endDate,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('RATE_LIMITED')) {
+        console.warn('[Auth] Rate limited - will retry subscription load');
+        setTimeout(() => loadSubscription(userId), 2000);
+        return;
+      }
       console.error('Error loading subscription:', error);
     }
   }, []);
@@ -80,6 +92,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const today = new Date().toISOString().split('T')[0];
       
       if (userId) {
+        await new Promise(resolve => setTimeout(resolve, 300));
         const result = await trpcClient.scans.getDailyScans.query({ userId, date: today });
         setDailyScansRemaining(result.scansRemaining);
       } else {
@@ -97,7 +110,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           setLastResetDate(storedDate);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('RATE_LIMITED')) {
+        console.warn('[Auth] Rate limited - will retry scans load');
+        setTimeout(() => loadDailyScans(userId), 2000);
+        return;
+      }
       console.error('Error loading daily scans:', error);
     }
   }, []);

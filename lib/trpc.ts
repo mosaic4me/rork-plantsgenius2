@@ -4,6 +4,32 @@ import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
 
+const requestQueue: Array<() => Promise<any>> = [];
+let isProcessingQueue = false;
+const REQUEST_DELAY = 300;
+
+const processQueue = async () => {
+  if (isProcessingQueue || requestQueue.length === 0) {
+    return;
+  }
+
+  isProcessingQueue = true;
+
+  while (requestQueue.length > 0) {
+    const request = requestQueue.shift();
+    if (request) {
+      try {
+        await request();
+      } catch (error) {
+        console.error('[Queue] Request failed:', error);
+      }
+      await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+    }
+  }
+
+  isProcessingQueue = false;
+};
+
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
@@ -32,9 +58,11 @@ const baseUrl = getBaseUrl();
 console.log('[tRPC] 📡 Final tRPC endpoint:', `${baseUrl}/api/trpc`);
 
 const customFetch = async (url: string, options: any) => {
-  try {
-    console.log('[tRPC] 🔄 Request starting:', url);
-    console.log('[tRPC] 📤 Method:', options?.method || 'GET');
+  return new Promise((resolve, reject) => {
+    requestQueue.push(async () => {
+      try {
+        console.log('[tRPC] 🔄 Request starting:', url);
+        console.log('[tRPC] 📤 Method:', options?.method || 'GET');
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -94,6 +122,12 @@ const customFetch = async (url: string, options: any) => {
         throw new Error('BACKEND_ERROR');
       }
       
+      if (response.status === 429) {
+        console.error('[tRPC] ❌ Rate Limited (429) - Too Many Requests');
+        console.error('[tRPC] Backend is rate limiting requests. Implement throttling.');
+        throw new Error('RATE_LIMITED');
+      }
+      
       if (response.status === 0 || response.status >= 400) {
         console.error('[tRPC] ❌ HTTP Error:', response.status);
         throw new Error(`HTTP_ERROR_${response.status}`);
@@ -105,12 +139,12 @@ const customFetch = async (url: string, options: any) => {
       }
     }
 
-    return response;
-  } catch (error: any) {
-    console.error('[tRPC] ❌ Fetch error occurred:');
-    console.error('[tRPC] Error name:', error.name);
-    console.error('[tRPC] Error message:', error.message);
-    console.error('[tRPC] Error stack:', error.stack?.substring(0, 200));
+        resolve(response);
+      } catch (error: any) {
+        console.error('[tRPC] ❌ Fetch error occurred:');
+        console.error('[tRPC] Error name:', error.name);
+        console.error('[tRPC] Error message:', error.message);
+        console.error('[tRPC] Error stack:', error.stack?.substring(0, 200));
     
     if (error.name === 'AbortError') {
       console.error('[tRPC] ⏱️ Request timeout after 30 seconds');
@@ -126,13 +160,17 @@ const customFetch = async (url: string, options: any) => {
       throw new Error('BACKEND_NETWORK_ERROR');
     }
     
-    if (error.message?.includes('Network request failed')) {
-      console.error('[tRPC] 🌐 Network request failed (mobile)');
-      throw new Error('BACKEND_NETWORK_ERROR');
-    }
-    
-    throw error;
-  }
+        if (error.message?.includes('Network request failed')) {
+          console.error('[tRPC] 🌐 Network request failed (mobile)');
+          reject(new Error('BACKEND_NETWORK_ERROR'));
+          return;
+        }
+        
+        reject(error);
+      }
+    });
+    processQueue();
+  });
 };
 
 export const trpcClient = trpc.createClient({
