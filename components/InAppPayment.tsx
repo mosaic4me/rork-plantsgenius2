@@ -115,16 +115,20 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
         }),
       });
 
+      const contentType = response.headers.get('content-type');
+      console.log('[Payment] Response status:', response.status);
+      console.log('[Payment] Response content-type:', contentType);
+
       if (!response.ok) {
         let errorMessage = 'Failed to create subscription';
         try {
-          const contentType = response.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
             const errorData = await response.json();
+            console.log('[Payment] Error JSON:', errorData);
             errorMessage = errorData.error || errorData.message || errorMessage;
           } else {
             const errorText = await response.text();
-            console.log('[Payment] Non-JSON error response:', errorText.substring(0, 200));
+            console.log('[Payment] Error text response:', errorText.substring(0, 200));
             errorMessage = `Server error (${response.status}): ${errorText.substring(0, 100)}`;
           }
         } catch (parseError) {
@@ -132,6 +136,21 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
           errorMessage = `Request failed with status ${response.status}`;
         }
         throw new Error(errorMessage);
+      }
+
+      let subscriptionData;
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          subscriptionData = await response.json();
+          console.log('[Payment] Success response:', subscriptionData);
+        } else {
+          const textResponse = await response.text();
+          console.log('[Payment] Non-JSON success response:', textResponse.substring(0, 200));
+          throw new Error('Server returned non-JSON response');
+        }
+      } catch (parseError) {
+        console.error('[Payment] Error parsing success response:', parseError);
+        throw new Error('Failed to process server response');
       }
 
       await Notifications.scheduleNotificationAsync({
@@ -144,11 +163,12 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
       
       onClose();
     } catch (error: any) {
-      console.error('[Payment] Error processing payment:', error);
+      console.error('ERROR Error processing payment:', error);
       console.error('[Payment] Error details:', {
         message: error.message,
         name: error.name,
         stack: error.stack,
+        type: typeof error,
       });
       
       const errorMessage = error.message || 'Failed to activate subscription. Please try again.';
