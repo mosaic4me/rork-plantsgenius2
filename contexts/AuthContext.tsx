@@ -5,6 +5,8 @@ import { trpcClient } from '@/lib/trpc';
 import { signInWithGoogle, signInWithApple, type OAuthUser } from '@/utils/oauthHelpers';
 import { checkBackendHealth } from '@/utils/backendHealthCheck';
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site';
+
 interface Profile {
   id: string;
   email: string;
@@ -161,20 +163,33 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
       console.log('[SignUp] Backend is healthy, proceeding with signup');
       
-      const result = await trpcClient.auth.signUp.mutate({ 
-        email: trimmedEmail, 
-        password, 
-        fullName: trimmedFullName 
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password,
+          fullName: trimmedFullName,
+        }),
       });
       
-      console.log('[SignUp] Success - user created:', result.id);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to sign up');
+      }
+      
+      const result = await response.json();
+      console.log('[SignUp] Success - user created:', result.user.id);
       
       const userData: User = {
-        id: result.id,
-        email: result.email,
-        fullName: result.fullName,
+        id: result.user.id,
+        email: result.user.email,
+        fullName: result.user.fullName,
       };
       
+      await AsyncStorage.setItem('authToken', result.token);
       setUser(userData);
       await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
       await loadProfile(userData.id);
@@ -233,19 +248,32 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       }
       console.log('[SignIn] Backend is healthy, proceeding with signin');
       
-      const result = await trpcClient.auth.signIn.mutate({ 
-        email: trimmedEmail, 
-        password 
+      const response = await fetch(`${API_BASE_URL}/api/auth/signin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password,
+        }),
       });
       
-      console.log('[SignIn] Success - user authenticated:', result.id);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to sign in');
+      }
+      
+      const result = await response.json();
+      console.log('[SignIn] Success - user authenticated:', result.user.id);
       
       const userData: User = {
-        id: result.id,
-        email: result.email,
-        fullName: result.fullName,
+        id: result.user.id,
+        email: result.user.email,
+        fullName: result.user.fullName,
       };
       
+      await AsyncStorage.setItem('authToken', result.token);
       setUser(userData);
       await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
       await loadProfile(userData.id);
@@ -429,45 +457,28 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       console.log(`[OAuth] ${provider} sign in successful, creating/fetching user`);
       
       try {
-        const result = await trpcClient.auth.signIn.mutate({
-          email: oauthUser.email,
-          password: oauthUser.id,
-        });
-        
-        const userData: User = {
-          id: result.id,
-          email: result.email,
-          fullName: result.fullName,
-          authProvider: provider,
-        };
-        
-        setUser(userData);
-        setAuthProvider(provider);
-        await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-        await AsyncStorage.setItem('authProvider', provider);
-        await loadProfile(userData.id);
-        await loadSubscription(userData.id);
-        await loadDailyScans(userData.id);
-        
-        return { data: userData, error: null };
-      } catch (signInError: any) {
-        if (signInError.message?.includes('Invalid credentials') || 
-            signInError.message?.includes('User not found')) {
-          console.log(`[OAuth] User not found, creating new account`);
-          
-          const createResult = await trpcClient.auth.signUp.mutate({
+        const signInResponse = await fetch(`${API_BASE_URL}/api/auth/signin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
             email: oauthUser.email,
             password: oauthUser.id,
-            fullName: oauthUser.fullName,
-          });
+          }),
+        });
+        
+        if (signInResponse.ok) {
+          const result = await signInResponse.json();
           
           const userData: User = {
-            id: createResult.id,
-            email: createResult.email,
-            fullName: createResult.fullName,
+            id: result.user.id,
+            email: result.user.email,
+            fullName: result.user.fullName,
             authProvider: provider,
           };
           
+          await AsyncStorage.setItem('authToken', result.token);
           setUser(userData);
           setAuthProvider(provider);
           await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
@@ -478,7 +489,52 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           
           return { data: userData, error: null };
         }
-        throw signInError;
+        
+        const signInError = await signInResponse.json();
+        if (signInError.error?.includes('Invalid') || signInError.error?.includes('not found')) {
+          console.log(`[OAuth] User not found, creating new account`);
+          
+          const signUpResponse = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: oauthUser.email,
+              password: oauthUser.id,
+              fullName: oauthUser.fullName,
+            }),
+          });
+          
+          if (!signUpResponse.ok) {
+            const errorData = await signUpResponse.json();
+            throw new Error(errorData.error || 'Failed to create account');
+          }
+          
+          const createResult = await signUpResponse.json();
+          
+          const userData: User = {
+            id: createResult.user.id,
+            email: createResult.user.email,
+            fullName: createResult.user.fullName,
+            authProvider: provider,
+          };
+          
+          await AsyncStorage.setItem('authToken', createResult.token);
+          setUser(userData);
+          setAuthProvider(provider);
+          await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
+          await AsyncStorage.setItem('authProvider', provider);
+          await loadProfile(userData.id);
+          await loadSubscription(userData.id);
+          await loadDailyScans(userData.id);
+          
+          return { data: userData, error: null };
+        }
+        
+        throw new Error(signInError.error || 'Failed to authenticate');
+      } catch (oauthError: any) {
+        throw oauthError;
       }
     } catch (error: any) {
       console.error(`[OAuth] ${provider} sign in error:`, error);
