@@ -3,7 +3,7 @@ import { trpcServer } from "@hono/trpc-server";
 import { cors } from "hono/cors";
 import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
-import { findUserByEmail, createUser } from '@/lib/mongodb';
+import { findUserByEmail, createUser, createSubscription, findUserById } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import validator from 'validator';
@@ -219,6 +219,103 @@ app.post("/api/auth/signin", async (c) => {
   } catch (error: any) {
     console.error('[REST SignIn] Error:', error.message);
     return c.json({ error: error.message || 'Failed to sign in' }, 500);
+  }
+});
+
+app.post("/api/subscription/create", async (c) => {
+  try {
+    console.log('[REST CreateSubscription] Request received');
+    const authHeader = c.req.header('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[REST CreateSubscription] Missing or invalid auth header');
+      return c.json({ error: 'Unauthorized: Missing authentication token' }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    
+    if (!process.env.JWT_SECRET) {
+      console.error('[REST CreateSubscription] CRITICAL: JWT_SECRET not configured');
+      return c.json({ error: 'Server configuration error' }, 500);
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('[REST CreateSubscription] Token verified for user:', decoded.userId);
+    } catch (jwtError: any) {
+      console.error('[REST CreateSubscription] JWT verification failed:', jwtError.message);
+      return c.json({ error: 'Unauthorized: Invalid token' }, 401);
+    }
+
+    const body = await c.req.json();
+    const { userId, planType, status, startDate, endDate, paymentReference } = body;
+
+    if (decoded.userId !== userId) {
+      console.error('[REST CreateSubscription] User ID mismatch');
+      return c.json({ error: 'Unauthorized: User ID mismatch' }, 403);
+    }
+
+    if (!userId || !planType || !status || !startDate || !endDate || !paymentReference) {
+      console.log('[REST CreateSubscription] Missing required fields');
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+
+    if (!['basic', 'premium'].includes(planType)) {
+      return c.json({ error: 'Invalid plan type' }, 400);
+    }
+
+    if (!['active', 'cancelled', 'expired'].includes(status)) {
+      return c.json({ error: 'Invalid status' }, 400);
+    }
+
+    const user = await findUserById(userId);
+    if (!user) {
+      console.error('[REST CreateSubscription] User not found');
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    console.log('[REST CreateSubscription] Creating subscription...');
+    const subscription = await createSubscription({
+      userId,
+      planType,
+      status,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      paymentReference,
+    });
+
+    console.log('[REST CreateSubscription] Subscription created:', subscription._id?.toString());
+
+    return c.json({
+      id: subscription._id!.toString(),
+      planType: subscription.planType,
+      status: subscription.status,
+      startDate: subscription.startDate.toISOString(),
+      endDate: subscription.endDate.toISOString(),
+    }, 201);
+  } catch (error: any) {
+    console.error('[REST CreateSubscription] Error:', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack?.substring(0, 500),
+    });
+    
+    let errorMessage = 'Failed to create subscription';
+    
+    if (error?.message) {
+      if (error.message.includes('MongoDB') || error.message.includes('database')) {
+        errorMessage = 'Database error. Please try again later.';
+        return c.json({ error: errorMessage }, 503);
+      } else if (error.message.includes('network') || error.message.includes('ECONNREFUSED')) {
+        errorMessage = 'Service temporarily unavailable. Please try again later.';
+        return c.json({ error: errorMessage }, 503);
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    return c.json({ error: errorMessage }, 500);
   }
 });
 

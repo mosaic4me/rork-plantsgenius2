@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getPaymentDetails } from '@/utils/paymentHelpers';
 import type { PlanType, BillingCycle } from '@/utils/paymentHelpers';
 import { trpcClient } from '@/lib/trpc';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 interface InAppPaymentProps {
   visible: boolean;
@@ -115,20 +117,81 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
       const paymentReference = `${Platform.OS.toUpperCase()}_${Date.now()}_${planType}_${billingCycle}`;
 
       console.log('[Payment] Creating subscription via tRPC...');
-      const subscriptionData = await trpcClient.subscription.createSubscription.mutate({
-        userId: user.id,
-        planType: planType,
-        billingCycle: billingCycle,
-        status: 'active',
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        paymentReference: paymentReference,
-        amount: paymentDetails?.amount || 0,
-        currency: paymentDetails?.currency || 'USD',
-        paymentMethod: paymentMethod,
-      });
-
-      console.log('[Payment] Subscription created successfully:', subscriptionData);
+      
+      let subscriptionData;
+      try {
+        subscriptionData = await trpcClient.subscription.createSubscription.mutate({
+          userId: user.id,
+          planType: planType,
+          billingCycle: billingCycle,
+          status: 'active',
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          paymentReference: paymentReference,
+          amount: paymentDetails?.amount || 0,
+          currency: paymentDetails?.currency || 'USD',
+          paymentMethod: paymentMethod,
+        });
+        console.log('[Payment] Subscription created via tRPC:', subscriptionData);
+      } catch (trpcError: any) {
+        console.log('[Payment] tRPC error:', trpcError.message);
+        
+        if (
+          trpcError.message?.includes('BACKEND_NOT_AVAILABLE') ||
+          trpcError.message?.includes('404') ||
+          trpcError.message?.includes('BACKEND_NETWORK_ERROR')
+        ) {
+          console.log('[Payment] Backend unavailable, using direct REST API...');
+          
+          const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.plantsgenius.site';
+          
+          let token: string | null = null;
+          try {
+            if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+              token = await AsyncStorage.getItem('authToken');
+            } else {
+              token = await SecureStore.getItemAsync('authToken');
+            }
+          } catch (error) {
+            console.log('[Payment] Could not access auth token:', error);
+          }
+          
+          if (!token) {
+            throw new Error('Not authenticated');
+          }
+          
+          const response = await fetch(`${baseUrl}/api/subscription/create`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              userId: user.id,
+              planType: planType,
+              billingCycle: billingCycle,
+              status: 'active',
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
+              paymentReference: paymentReference,
+              amount: paymentDetails?.amount || 0,
+              currency: paymentDetails?.currency || 'USD',
+              paymentMethod: paymentMethod,
+            }),
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[Payment] REST API error:', errorText);
+            throw new Error(`Failed to create subscription: ${response.status}`);
+          }
+          
+          subscriptionData = await response.json();
+          console.log('[Payment] Subscription created via REST API:', subscriptionData);
+        } else {
+          throw trpcError;
+        }
+      }
 
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -152,10 +215,12 @@ export default function InAppPayment({ visible, onClose, planType, billingCycle 
       
       if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('not authenticated')) {
         errorMessage = 'Your session has expired. Please sign in again.';
-      } else if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many')) {
+      } else if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many') || errorMessage.toLowerCase().includes('rate')) {
         errorMessage = 'Too many payment requests. Please wait a few moments before trying again.';
-      } else if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch') || errorMessage.includes('Failed to fetch')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (errorMessage.toLowerCase().includes('backend') || errorMessage.includes('404') || errorMessage.includes('503')) {
+        errorMessage = 'Service temporarily unavailable. Please try again in a few minutes.';
       }
       
       await Notifications.scheduleNotificationAsync({
