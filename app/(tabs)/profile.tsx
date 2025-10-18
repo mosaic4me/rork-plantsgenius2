@@ -46,6 +46,17 @@ export default function ProfileScreen() {
     
     const initializePricing = async () => {
       try {
+        const cachedPrices = await AsyncStorage.getItem('cachedPrices');
+        const cacheTime = await AsyncStorage.getItem('pricesCacheTime');
+        
+        if (cachedPrices && cacheTime) {
+          const ageMs = Date.now() - parseInt(cacheTime);
+          if (ageMs < 24 * 60 * 60 * 1000) {
+            setPrices(JSON.parse(cachedPrices));
+            return;
+          }
+        }
+
         const hasRequestedLocation = await AsyncStorage.getItem('hasRequestedLocationForCurrency');
         if (hasRequestedLocation === 'true') {
           return;
@@ -66,12 +77,18 @@ export default function ProfileScreen() {
           const premiumMonthly = await convertCurrency(4.99, 'NGN');
           const premiumYearly = await convertCurrency(52.76, 'NGN');
 
-          setPrices({
+          const newPrices = {
             basicMonthly: formatCurrency(basicMonthly.amount, basicMonthly.currency),
             basicYearly: formatCurrency(basicYearly.amount, basicYearly.currency),
             premiumMonthly: formatCurrency(premiumMonthly.amount, premiumMonthly.currency),
             premiumYearly: formatCurrency(premiumYearly.amount, premiumYearly.currency),
-          });
+          };
+
+          setPrices(newPrices);
+          await AsyncStorage.multiSet([
+            ['cachedPrices', JSON.stringify(newPrices)],
+            ['pricesCacheTime', Date.now().toString()]
+          ]);
 
           Toast.show({
             type: 'success',
@@ -132,13 +149,13 @@ export default function ProfileScreen() {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
 
-      const { error } = await deleteAccount();
+      const result = await deleteAccount();
       
-      if (error) {
+      if (result.error) {
         Toast.show({
           type: 'error',
           text1: 'Error',
-          text2: error.message || 'Failed to delete account',
+          text2: typeof result.error === 'string' ? result.error : 'Failed to delete account',
           position: 'top',
         });
         return;

@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 import type { PlantIdentification } from '@/types/plant';
 
@@ -65,17 +66,26 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
       console.log('[ImageCopy] Web platform, returning original URI');
       return imageUri;
     }
+
+    console.log('[ImageCopy] Compressing and resizing image...');
+    const manipulatedImage = await ImageManipulator.manipulateAsync(
+      imageUri,
+      [{ resize: { width: 1024 } }],
+      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    const optimizedUri = manipulatedImage.uri;
+    console.log('[ImageCopy] Image optimized:', optimizedUri);
     
-    const sourceInfo = await FileSystem.getInfoAsync(imageUri);
+    const sourceInfo = await FileSystem.getInfoAsync(optimizedUri);
     if (!sourceInfo.exists) {
-      console.error('[ImageCopy] Source file does not exist:', imageUri);
+      console.error('[ImageCopy] Source file does not exist:', optimizedUri);
       throw new Error('Source image file not found');
     }
     console.log('[ImageCopy] Source file confirmed exists, size:', sourceInfo.size);
     
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
-    const extension = imageUri.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+    const extension = 'jpg';
     const fileName = `plant_${timestamp}_${random}.${extension}`;
     const permanentPath = `${FileSystem.documentDirectory}${fileName}`;
     
@@ -84,7 +94,7 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
     if (Platform.OS === 'android') {
       console.log('[ImageCopy] Android detected, using base64 method for reliability');
       try {
-        const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        const base64 = await FileSystem.readAsStringAsync(optimizedUri, {
           encoding: FileSystem.EncodingType.Base64,
         });
         console.log('[ImageCopy] Base64 read successful, length:', base64.length);
@@ -107,7 +117,7 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
     try {
       console.log('[ImageCopy] Attempting direct copy');
       await FileSystem.copyAsync({
-        from: imageUri,
+        from: optimizedUri,
         to: permanentPath,
       });
       
@@ -122,7 +132,7 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
       if (Platform.OS === 'ios') {
         console.log('[ImageCopy] iOS detected, trying base64 fallback');
         try {
-          const base64 = await FileSystem.readAsStringAsync(imageUri, {
+          const base64 = await FileSystem.readAsStringAsync(optimizedUri, {
             encoding: FileSystem.EncodingType.Base64,
           });
           
@@ -141,8 +151,8 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
       }
     }
     
-    console.log('[ImageCopy] All copy methods failed, returning original URI');
-    return imageUri;
+    console.log('[ImageCopy] All copy methods failed, returning optimized URI');
+    return optimizedUri;
   } catch (error: any) {
     console.error('[ImageCopy] Critical error:', error);
     console.error('[ImageCopy] Error message:', error.message);
@@ -151,6 +161,10 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
 }
 
 const PLANTNET_API_KEY = process.env.EXPO_PUBLIC_PLANTNET_API_KEY;
+
+if (!PLANTNET_API_KEY) {
+  console.error('[PlantID] CRITICAL: EXPO_PUBLIC_PLANTNET_API_KEY not configured');
+}
 const PLANTNET_API_URL = process.env.EXPO_PUBLIC_PLANTNET_API_URL || 'https://my-api.plantnet.org/v2/identify/all';
 
 export async function identifyPlant(imageUri: string): Promise<PlantIdentification> {

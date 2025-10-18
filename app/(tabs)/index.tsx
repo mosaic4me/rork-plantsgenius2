@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import { Camera, Leaf, TrendingUp, Sparkles, ArrowRight, BookOpen, Users } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -52,22 +52,6 @@ export default function HomeScreen() {
   const popularPlantsToShow = POPULAR_PLANTS.slice(0, 3);
   const scrollX = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % popularPlantsToShow.length;
-        scrollViewRef.current?.scrollTo({
-          x: nextIndex * (width * 0.7 + 16),
-          animated: true,
-        });
-        return nextIndex;
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [popularPlantsToShow.length]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

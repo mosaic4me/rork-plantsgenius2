@@ -1,19 +1,19 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { AlertCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 
 interface Props {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
-  errorInfo: ErrorInfo | null;
+  errorInfo: React.ErrorInfo | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+export default class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -31,10 +31,9 @@ class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[ErrorBoundary] Uncaught error:', error);
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[ErrorBoundary] Caught error:', error);
     console.error('[ErrorBoundary] Error info:', errorInfo);
-    
     this.setState({
       error,
       errorInfo,
@@ -51,62 +50,41 @@ class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      const errorMessage = this.state.error?.message || 'Unknown error occurred';
-      const isNetworkError = errorMessage.toLowerCase().includes('network') || 
-                            errorMessage.toLowerCase().includes('failed to fetch') ||
-                            errorMessage.toLowerCase().includes('timeout');
-      const isRateLimitError = errorMessage.toLowerCase().includes('rate limit') ||
-                              errorMessage.toLowerCase().includes('too many requests') ||
-                              errorMessage.toLowerCase().includes('429');
-      
       return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
           <View style={styles.content}>
             <View style={styles.iconContainer}>
-              <Text style={styles.icon}>⚠️</Text>
+              <AlertCircle size={64} color={Colors.error} />
             </View>
-            
-            <Text style={styles.title}>Something Went Wrong</Text>
-            
-            <Text style={styles.message}>
-              {isNetworkError
-                ? 'Cannot connect to servers. Check your internet connection and try again.'
-                : isRateLimitError
-                ? 'You have made too many requests. Please wait a few minutes and try again.'
-                : 'An unexpected error occurred. The app will try to recover.'}
+            <Text style={styles.title}>Oops! Something went wrong</Text>
+            <Text style={styles.subtitle}>
+              We encountered an unexpected error. Don't worry, your data is safe.
             </Text>
 
             {__DEV__ && this.state.error && (
-              <ScrollView style={styles.debugContainer}>
-                <Text style={styles.debugTitle}>Error Details (Dev Mode):</Text>
-                <Text style={styles.debugText}>{this.state.error.toString()}</Text>
+              <ScrollView style={styles.errorContainer}>
+                <Text style={styles.errorTitle}>Error Details:</Text>
+                <Text style={styles.errorText}>{this.state.error.toString()}</Text>
                 {this.state.errorInfo && (
-                  <Text style={styles.debugText}>
-                    {this.state.errorInfo.componentStack}
-                  </Text>
+                  <>
+                    <Text style={styles.errorTitle}>Stack Trace:</Text>
+                    <Text style={styles.errorText}>
+                      {this.state.errorInfo.componentStack}
+                    </Text>
+                  </>
                 )}
               </ScrollView>
             )}
-            
-            <TouchableOpacity
-              style={styles.button}
-              onPress={this.handleReset}
-              activeOpacity={0.7}
-            >
+
+            <TouchableOpacity style={styles.button} onPress={this.handleReset}>
               <Text style={styles.buttonText}>Try Again</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => {
-                this.handleReset();
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.secondaryButtonText}>Go Back</Text>
-            </TouchableOpacity>
+            <Text style={styles.helpText}>
+              If the problem persists, please restart the app or contact support.
+            </Text>
           </View>
-        </SafeAreaView>
+        </View>
       );
     }
 
@@ -118,79 +96,78 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  content: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
-  iconContainer: {
-    marginBottom: 24,
+  content: {
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
   },
-  icon: {
-    fontSize: 64,
+  iconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#FFEBEE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   title: {
     fontSize: 24,
     fontWeight: '700' as const,
-    color: Colors.primary,
-    marginBottom: 12,
+    color: Colors.black,
     textAlign: 'center',
+    marginBottom: 12,
   },
-  message: {
+  subtitle: {
     fontSize: 16,
     color: Colors.gray.dark,
     textAlign: 'center',
-    marginBottom: 32,
     lineHeight: 24,
+    marginBottom: 32,
   },
-  debugContainer: {
-    maxHeight: 200,
+  errorContainer: {
     width: '100%',
+    maxHeight: 200,
     backgroundColor: Colors.gray.light,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 24,
   },
-  debugTitle: {
+  errorTitle: {
     fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.primary,
+    fontWeight: '700' as const,
+    color: Colors.error,
     marginBottom: 8,
   },
-  debugText: {
+  errorText: {
     fontSize: 12,
     color: Colors.gray.dark,
-    fontFamily: 'monospace' as const,
-  },
-  button: {
-    width: '100%',
-    backgroundColor: Colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    alignItems: 'center',
+    fontFamily: 'monospace',
     marginBottom: 12,
   },
-  buttonText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '600' as const,
-  },
-  secondaryButton: {
-    width: '100%',
-    backgroundColor: Colors.gray.light,
-    paddingVertical: 16,
+  button: {
+    backgroundColor: Colors.primary,
     paddingHorizontal: 32,
+    paddingVertical: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  secondaryButtonText: {
-    color: Colors.primary,
+  buttonText: {
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
+    color: Colors.white,
+  },
+  helpText: {
+    fontSize: 14,
+    color: Colors.gray.medium,
+    textAlign: 'center',
   },
 });
-
-export default ErrorBoundary;

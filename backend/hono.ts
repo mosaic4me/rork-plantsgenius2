@@ -85,9 +85,14 @@ app.post("/api/auth/signup", async (c) => {
       return c.json({ error: 'Invalid email format' }, 400);
     }
 
-    if (password.length < 8) {
-      console.log('[REST SignUp] Password too short');
-      return c.json({ error: 'Password must be at least 8 characters with uppercase letter and number' }, 400);
+    if (sanitizedName.length < 2 || sanitizedName.length > 100) {
+      console.log('[REST SignUp] Invalid name length');
+      return c.json({ error: 'Full name must be between 2 and 100 characters' }, 400);
+    }
+
+    if (password.length < 8 || password.length > 128) {
+      console.log('[REST SignUp] Invalid password length');
+      return c.json({ error: 'Password must be between 8 and 128 characters' }, 400);
     }
 
     if (!/[A-Z]/.test(password)) {
@@ -98,6 +103,11 @@ app.post("/api/auth/signup", async (c) => {
     if (!/[0-9]/.test(password)) {
       console.log('[REST SignUp] Password missing number');
       return c.json({ error: 'Password must contain at least one number' }, 400);
+    }
+
+    if (!/[a-z]/.test(password)) {
+      console.log('[REST SignUp] Password missing lowercase');
+      return c.json({ error: 'Password must contain at least one lowercase letter' }, 400);
     }
 
     console.log('[REST SignUp] Checking for existing user:', trimmedEmail);
