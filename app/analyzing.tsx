@@ -40,7 +40,7 @@ export default function AnalyzingScreen() {
           plantData = await identifyPlant(params.imageUri);
           console.log('[Analyzing] ✅ Direct API identification successful');
         } catch (directApiError: any) {
-          console.log('[Analyzing] ⚠️ Direct API error:', directApiError.message);
+          console.log('[Analyzing] Direct API unavailable, trying backend fallback');
           
           if (directApiError.message?.includes('RATE_LIMIT_EXCEEDED') || directApiError.message?.includes('429')) {
             throw new Error('Daily scan limit reached. The plant identification service has reached its daily limit. Please try again tomorrow.');
@@ -147,8 +147,7 @@ export default function AnalyzingScreen() {
               saved: false,
             };
           } catch (backendError: any) {
-            console.error('[Analyzing] ❌ Backend fallback also failed:', backendError.message);
-            console.error('[Analyzing] ❌ Direct API failed:', directApiError.message);
+            console.log('[Analyzing] Backend also unavailable');
             
             if (backendError.message?.includes('RATE_LIMIT_EXCEEDED') || backendError.message?.includes('429')) {
               throw new Error('Daily scan limit reached. The plant identification service has reached its daily limit. Please try again tomorrow.');
