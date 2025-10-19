@@ -148,9 +148,14 @@ export default function AnalyzingScreen() {
             };
           } catch (backendError: any) {
             console.error('[Analyzing] ❌ Backend fallback also failed:', backendError.message);
+            console.error('[Analyzing] ❌ Direct API failed:', directApiError.message);
             
             if (backendError.message?.includes('RATE_LIMIT_EXCEEDED') || backendError.message?.includes('429')) {
               throw new Error('Daily scan limit reached. The plant identification service has reached its daily limit. Please try again tomorrow.');
+            }
+            
+            if (backendError.message?.includes('BACKEND_NOT_AVAILABLE') || backendError.message?.includes('404')) {
+              throw new Error('Plant identification service not configured. Please contact support.');
             }
             
             throw new Error('Unable to identify plant. Both direct API and backend are currently unavailable. Please check your configuration or try again later.');

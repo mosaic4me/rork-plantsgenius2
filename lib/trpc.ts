@@ -15,6 +15,19 @@ const getBaseUrl = () => {
   console.log('[tRPC] - EXPO_PUBLIC_API_BASE_URL:', apiUrl || 'NOT SET');
   console.log('[tRPC] - Platform:', Platform.OS);
   
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      console.log('[tRPC] Web hostname:', hostname);
+      
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('.local')) {
+        const localUrl = `${window.location.protocol}//${window.location.host}`;
+        console.log('[tRPC] ✅ Using local web URL:', localUrl);
+        return localUrl;
+      }
+    }
+  }
+  
   if (apiUrl && apiUrl.trim() !== '') {
     const cleanUrl = apiUrl.trim();
     const finalUrl = cleanUrl.endsWith('/') ? cleanUrl.slice(0, -1) : cleanUrl;
@@ -23,10 +36,9 @@ const getBaseUrl = () => {
   }
 
   console.warn('[tRPC] ⚠️ EXPO_PUBLIC_API_BASE_URL not configured in .env file');
-  console.warn('[tRPC] ⚠️ Expected: EXPO_PUBLIC_API_BASE_URL=https://api.plantsgenius.site');
-  console.warn('[tRPC] ⚠️ App will run in offline/guest mode with limited features');
+  console.warn('[tRPC] ⚠️ Falling back to relative path for local development');
   
-  return 'https://api.plantsgenius.site';
+  return '';
 };
 
 const baseUrl = getBaseUrl();

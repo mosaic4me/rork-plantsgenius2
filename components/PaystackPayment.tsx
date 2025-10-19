@@ -75,18 +75,76 @@ export default function PaystackPayment({ visible, onClose, planType, billingCyc
         endDate.setFullYear(endDate.getFullYear() + 1);
       }
 
-      const { error } = await supabase.from('subscriptions').insert({
-        user_id: user.id,
-        plan_type: planType,
-        status: 'active',
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-        payment_reference: `PAY_${Date.now()}_${planType}_${billingCycle}`,
-      });
+      const paymentReference = `PAY_${Date.now()}_${planType}_${billingCycle}`;
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+      try {
+        const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+        const restEndpoint = baseUrl ? `${baseUrl}/api/subscription/create` : '/api/subscription/create';
+        
+        console.log('[Payment] Attempting REST API at:', restEndpoint);
+        
+        let token: string | null = null;
+        try {
+          if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+            const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+            token = await AsyncStorage.getItem('authToken');
+          } else {
+            const SecureStore = await import('expo-secure-store');
+            token = await SecureStore.getItemAsync('authToken');
+          }
+        } catch (storageError) {
+          console.error('[Payment] Storage access error:', storageError);
+        }
+
+        const response = await fetch(restEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            planType,
+            status: 'active',
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            paymentReference,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          console.error('[Payment] REST API error:', errorData);
+          
+          if (response.status === 404) {
+            console.log('[Payment] REST endpoint not found, falling back to Supabase');
+            throw new Error('REST_NOT_FOUND');
+          }
+          
+          throw new Error(`Failed to create subscription: ${response.status}`);
+        }
+
+        const subscriptionData = await response.json();
+        console.log('[Payment] Subscription created via REST:', subscriptionData);
+      } catch (restError: any) {
+        console.log('[Payment] REST API failed, falling back to Supabase');
+        console.error('[Payment] Error details:', restError);
+        
+        const { error } = await supabase.from('subscriptions').insert({
+          user_id: user.id,
+          plan_type: planType,
+          status: 'active',
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          payment_reference: paymentReference,
+        });
+
+        if (error) {
+          console.error('[Payment] Supabase error:', error);
+          throw error;
+        }
+
+        console.log('[Payment] Subscription saved to Supabase');
       }
 
       Toast.show({
@@ -99,7 +157,8 @@ export default function PaystackPayment({ visible, onClose, planType, billingCyc
       
       onClose();
     } catch (error: any) {
-      console.error('Error saving subscription:', error);
+      console.error('ERROR Error processing payment:', error);
+      console.error('[Payment] Error details:', error);
       Toast.show({
         type: 'error',
         text1: 'Subscription Error',
