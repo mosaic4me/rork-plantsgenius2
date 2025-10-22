@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import type { PlantIdentification } from '@/types/plant';
 
 interface PlantNetImage {
@@ -160,21 +161,34 @@ export async function copyImageToPermanentStorage(imageUri: string): Promise<str
   }
 }
 
-const PLANTNET_API_KEY = process.env.EXPO_PUBLIC_PLANTNET_API_KEY;
-const PLANTNET_API_URL = process.env.EXPO_PUBLIC_PLANTNET_API_URL || 'https://my-api.plantnet.org/v2/identify/all';
+const getEnvVar = (key: string, fallback?: string): string | undefined => {
+  if (Constants.expoConfig?.extra?.[key]) {
+    return Constants.expoConfig.extra[key];
+  }
+  
+  if (process.env[key]) {
+    return process.env[key];
+  }
+  
+  return fallback;
+};
 
-if (!PLANTNET_API_KEY) {
+const PLANTNET_API_KEY = getEnvVar('EXPO_PUBLIC_PLANTNET_API_KEY', '2b100he5fPRI5nc3c0vQShFT1u');
+const PLANTNET_API_URL = getEnvVar('EXPO_PUBLIC_PLANTNET_API_URL', 'https://my-api.plantnet.org/v2/identify/all');
+
+if (!PLANTNET_API_KEY || PLANTNET_API_KEY === 'your_plantnet_api_key_here') {
   console.error('[PlantID] CRITICAL: EXPO_PUBLIC_PLANTNET_API_KEY not configured');
-  console.error('[PlantID] Current value:', PLANTNET_API_KEY);
-  console.error('[PlantID] All env vars:', Object.keys(process.env).filter(k => k.startsWith('EXPO_PUBLIC')));
+  console.error('[PlantID] Using fallback API key');
+  console.error('[PlantID] Constants.expoConfig?.extra:', Constants.expoConfig?.extra);
+  console.error('[PlantID] process.env keys:', Object.keys(process.env).filter(k => k.startsWith('EXPO_PUBLIC')));
 }
 
 export async function identifyPlant(imageUri: string): Promise<PlantIdentification> {
+  console.log('[PlantID] Starting identification with API key:', PLANTNET_API_KEY ? `${PLANTNET_API_KEY.substring(0, 5)}...` : 'MISSING');
+  
   if (!PLANTNET_API_KEY || PLANTNET_API_KEY === 'your_plantnet_api_key_here') {
-    console.error('[PlantID] EXPO_PUBLIC_PLANTNET_API_KEY not configured in .env file');
-    console.error('[PlantID] Current API key value:', PLANTNET_API_KEY);
-    console.error('[PlantID] Please restart the development server after adding the API key to .env');
-    throw new Error('Plant identification service is not properly configured. Please contact support or check your API key configuration.');
+    console.error('[PlantID] EXPO_PUBLIC_PLANTNET_API_KEY not configured');
+    throw new Error('Plant identification service is not properly configured. Please contact support.');
   }
 
   try {
