@@ -285,6 +285,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 20,
     paddingBottom: 10,
+    width: 100,
+    height: 100,
+    alignSelf: 'center',
+    borderRadius: 50,
+    backgroundColor: Colors.white,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   logo: {
     width: 80,

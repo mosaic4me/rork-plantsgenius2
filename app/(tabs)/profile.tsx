@@ -57,6 +57,8 @@ export default function ProfileScreen() {
           }
         }
 
+        // LOCATION ACCESS DISABLED - Do not prompt for location permission
+        /*
         const hasRequestedLocation = await AsyncStorage.getItem('hasRequestedLocationForCurrency');
         if (hasRequestedLocation === 'true') {
           return;
@@ -66,7 +68,7 @@ export default function ProfileScreen() {
         setIsLoadingPrices(true);
 
         const location = await getUserLocation();
-        
+
         if (!location || !isWestAfricanCountry(location.country)) {
           return;
         }
@@ -98,6 +100,7 @@ export default function ProfileScreen() {
             visibilityTime: 2000,
           });
         }
+        */
       } catch (error) {
         console.error('[Profile] Error initializing pricing:', error);
       } finally {
@@ -409,24 +412,28 @@ export default function ProfileScreen() {
             onPress={() => handlePress('billing')}
           />
           */}
+          {/* CONTACT US - TEMPORARILY COMMENTED OUT
           <MenuItem
             icon={<Mail size={20} color={Colors.primary} />}
             title="Contact Us"
             subtitle="info@programmerscourt.com"
             onPress={() => handlePress('contact')}
           />
+          */}
           <MenuItem
             icon={<Info size={20} color={Colors.primary} />}
             title="About"
             subtitle="Version 1.0.0"
             onPress={() => handlePress('about')}
           />
+          {/* DELETE ACCOUNT - TEMPORARILY COMMENTED OUT
           <MenuItem
             icon={<Trash2 size={20} color={Colors.error} />}
             title="Delete Account"
             subtitle="Permanently delete your account"
             onPress={() => handlePress('delete')}
           />
+          */}
           <MenuItem
             icon={<LogOut size={20} color={Colors.error} />}
             title="Sign Out"

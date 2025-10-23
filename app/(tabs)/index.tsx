@@ -298,7 +298,7 @@ export default function HomeScreen() {
           <FeatureItem 
             icon="📚" 
             title="Comprehensive Database" 
-            description="Access information on over 10,000+ plant species"
+            description="Access information on over 70,000+ plant species"
           />
           <FeatureItem 
             icon="🌱" 
