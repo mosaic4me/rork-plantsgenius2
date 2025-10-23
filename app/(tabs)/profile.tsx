@@ -126,6 +126,9 @@ export default function ProfileScreen() {
       case 'contact':
         router.push('/contact' as any);
         break;
+      case 'about':
+        router.push('/about' as any);
+        break;
       case 'logout':
         signOut();
         Toast.show({
@@ -142,7 +145,7 @@ export default function ProfileScreen() {
         setShowDeleteModal(true);
         break;
       default:
-        console.log('Action:', action);
+        break;
     }
   };
 

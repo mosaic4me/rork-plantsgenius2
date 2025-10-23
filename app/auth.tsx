@@ -39,6 +39,62 @@ export default function AuthScreen() {
     setShowGoogleSignIn(isGoogleOAuthConfigured());
   }, []);
 
+  const getAuthErrorMessage = (error: any): string => {
+    if (!error) return 'Authentication failed. Please try again.';
+
+    const errorMsg = (error?.message || error?.data?.message || error || '').toLowerCase();
+
+    // Invalid credentials - don't reveal which field is wrong for security
+    if (errorMsg.includes('invalid') ||
+        errorMsg.includes('wrong password') ||
+        errorMsg.includes('incorrect password') ||
+        errorMsg.includes('wrong credentials') ||
+        errorMsg.includes('user not found') ||
+        errorMsg.includes('no user') ||
+        errorMsg.includes('not found')) {
+      return 'Invalid Email or Password';
+    }
+
+    // Email already exists
+    if (errorMsg.includes('already exists') ||
+        errorMsg.includes('already registered') ||
+        errorMsg.includes('duplicate')) {
+      return 'This email is already registered. Please try logging in.';
+    }
+
+    // Network/connection errors
+    if (errorMsg.includes('network') ||
+        errorMsg.includes('timeout') ||
+        errorMsg.includes('cannot connect') ||
+        errorMsg.includes('connection')) {
+      return 'Connection issue. Please check your internet and try again.';
+    }
+
+    // Service unavailable
+    if (errorMsg.includes('service') ||
+        errorMsg.includes('unavailable') ||
+        errorMsg.includes('backend') ||
+        errorMsg.includes('not available') ||
+        errorMsg.includes('not deployed') ||
+        errorMsg.includes('guest mode')) {
+      return 'Service temporarily unavailable. Please try Guest Mode.';
+    }
+
+    // Validation errors
+    if (errorMsg.includes('invalid email') ||
+        errorMsg.includes('email format')) {
+      return 'Please enter a valid email address';
+    }
+
+    if (errorMsg.includes('password too short') ||
+        errorMsg.includes('password length')) {
+      return 'Password must be at least 6 characters';
+    }
+
+    // Default friendly message
+    return 'Authentication failed. Please try again.';
+  };
+
   const handleAuth = async () => {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
@@ -63,17 +119,14 @@ export default function AuthScreen() {
       if (isSignUp) {
         const { data, error } = await signUp(trimmedEmail, trimmedPassword, trimmedFullName);
         if (error) {
-          if (error.message.includes('already exists')) {
-            Toast.show({
-              type: 'info',
-              text1: 'Account Already Exists',
-              text2: 'This email is already registered. Please try logging in or use a different email.',
-              position: 'top',
-              visibilityTime: 5000,
-            });
-          } else {
-            throw error;
-          }
+          const friendlyMessage = getAuthErrorMessage(error);
+          Toast.show({
+            type: 'error',
+            text1: 'Sign Up Failed',
+            text2: friendlyMessage,
+            position: 'top',
+            visibilityTime: 4000,
+          });
           return;
         }
 
@@ -92,7 +145,17 @@ export default function AuthScreen() {
         }
       } else {
         const { data, error } = await signIn(trimmedEmail, trimmedPassword);
-        if (error) throw error;
+        if (error) {
+          const friendlyMessage = getAuthErrorMessage(error);
+          Toast.show({
+            type: 'error',
+            text1: 'Sign In Failed',
+            text2: friendlyMessage,
+            position: 'top',
+            visibilityTime: 4000,
+          });
+          return;
+        }
 
         if (data) {
           Toast.show({
@@ -102,7 +165,7 @@ export default function AuthScreen() {
             position: 'top',
             visibilityTime: 2000,
           });
-          
+
           setTimeout(() => {
             router.replace('/(tabs)' as any);
           }, 500);
@@ -110,37 +173,16 @@ export default function AuthScreen() {
       }
     } catch (error: any) {
       console.error('[Auth] Error occurred:', error);
-      console.error('[Auth] Error message:', error?.message);
-      console.error('[Auth] Error name:', error?.name);
-      console.error('[Auth] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-      
-      let errorMessage = 'Something went wrong. Please try Guest Mode.';
-      
-      if (error?.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error?.data?.message) {
-        errorMessage = error.data.message;
-      }
-      
-      const msg = errorMessage.toLowerCase();
-      const isBackendError = msg.includes('service') || 
-                             msg.includes('unavailable') || 
-                             msg.includes('guest mode') ||
-                             msg.includes('backend') ||
-                             msg.includes('not available') ||
-                             msg.includes('not deployed') ||
-                             msg.includes('cannot connect') ||
-                             msg.includes('network') ||
-                             msg.includes('timeout');
-      
+
+      const friendlyMessage = getAuthErrorMessage(error);
+      const isServiceError = friendlyMessage.includes('Service temporarily unavailable');
+
       Toast.show({
-        type: isBackendError ? 'info' : 'error',
-        text1: isBackendError ? '⚠️ Service Not Available' : 'Authentication Error',
-        text2: isBackendError ? errorMessage : errorMessage,
+        type: isServiceError ? 'info' : 'error',
+        text1: isServiceError ? '⚠️ Service Not Available' : 'Authentication Error',
+        text2: friendlyMessage,
         position: 'top',
-        visibilityTime: 5000,
+        visibilityTime: 4000,
       });
     } finally {
       setLoading(false);
