@@ -27,6 +27,13 @@ export default function HomeScreen() {
   const { stats, history } = useApp();
   const { user, profile, dailyScansRemaining, hasActiveSubscription } = useAuth();
 
+  const recentScans = history.slice(0, 3);
+  const popularPlantsToShow = POPULAR_PLANTS.slice(0, 3);
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const autoScrollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [currentCarouselIndex, setCurrentCarouselIndex] = React.useState(0);
+
   // Auto-scroll carousel effect
   React.useEffect(() => {
     const totalSlides = popularPlantsToShow.length;
@@ -41,7 +48,7 @@ export default function HomeScreen() {
         });
         return nextIndex;
       });
-    }, 3000); // Auto-scroll every 3 seconds
+    }, 3000);
 
     return () => {
       if (autoScrollInterval.current) {
@@ -70,13 +77,6 @@ export default function HomeScreen() {
     }
     router.push('/garden' as any);
   };
-
-  const recentScans = history.slice(0, 3);
-  const popularPlantsToShow = POPULAR_PLANTS.slice(0, 3);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const scrollViewRef = useRef<ScrollView>(null);
-  const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
-  const [currentCarouselIndex, setCurrentCarouselIndex] = React.useState(0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
