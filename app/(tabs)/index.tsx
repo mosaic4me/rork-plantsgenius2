@@ -27,6 +27,29 @@ export default function HomeScreen() {
   const { stats, history } = useApp();
   const { user, profile, dailyScansRemaining, hasActiveSubscription } = useAuth();
 
+  // Auto-scroll carousel effect
+  React.useEffect(() => {
+    const totalSlides = popularPlantsToShow.length;
+    if (totalSlides <= 1) return;
+
+    autoScrollInterval.current = setInterval(() => {
+      setCurrentCarouselIndex((prevIndex) => {
+        const nextIndex = (prevIndex + 1) % totalSlides;
+        scrollViewRef.current?.scrollTo({
+          x: nextIndex * (width * 0.7 + 16),
+          animated: true,
+        });
+        return nextIndex;
+      });
+    }, 3000); // Auto-scroll every 3 seconds
+
+    return () => {
+      if (autoScrollInterval.current) {
+        clearInterval(autoScrollInterval.current);
+      }
+    };
+  }, [popularPlantsToShow.length]);
+
   const handleScanPress = () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -52,6 +75,8 @@ export default function HomeScreen() {
   const popularPlantsToShow = POPULAR_PLANTS.slice(0, 3);
   const scrollX = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
+  const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
+  const [currentCarouselIndex, setCurrentCarouselIndex] = React.useState(0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -130,10 +155,10 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
+          <ScrollView
             ref={scrollViewRef}
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
+            horizontal
+            showsHorizontalScrollIndicator={false}
             style={styles.popularList}
             pagingEnabled={false}
             decelerationRate="fast"
@@ -143,6 +168,30 @@ export default function HomeScreen() {
               { useNativeDriver: false }
             )}
             scrollEventThrottle={16}
+            onTouchStart={() => {
+              // Pause auto-scroll when user touches the carousel
+              if (autoScrollInterval.current) {
+                clearInterval(autoScrollInterval.current);
+              }
+            }}
+            onTouchEnd={() => {
+              // Resume auto-scroll after 2 seconds of no interaction
+              setTimeout(() => {
+                const totalSlides = popularPlantsToShow.length;
+                if (totalSlides <= 1) return;
+
+                autoScrollInterval.current = setInterval(() => {
+                  setCurrentCarouselIndex((prevIndex) => {
+                    const nextIndex = (prevIndex + 1) % totalSlides;
+                    scrollViewRef.current?.scrollTo({
+                      x: nextIndex * (width * 0.7 + 16),
+                      animated: true,
+                    });
+                    return nextIndex;
+                  });
+                }, 3000);
+              }, 2000);
+            }}
           >
             {popularPlantsToShow.map((plant) => (
               <TouchableOpacity
