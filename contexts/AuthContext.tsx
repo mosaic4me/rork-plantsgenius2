@@ -661,6 +661,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const token = await getAuthToken();
       if (!token) return { error: 'Not authenticated' };
 
+      console.log('[Auth] Updating profile for user:', user.id);
+      console.log('[Auth] Update data:', updates);
+
       const response = await fetch(`${API_BASE_URL}/api/user/${user.id}`, {
         method: 'PUT',
         headers: {
@@ -672,15 +675,38 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }),
       });
 
+      console.log('[Auth] Update profile response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const contentType = response.headers.get('content-type');
+        let errorMessage = 'Failed to update profile';
+        
+        try {
+          if (contentType?.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } else {
+            const errorText = await response.text();
+            console.error('[Auth] Update profile error text:', errorText.substring(0, 200));
+            if (errorText) {
+              errorMessage = errorText.substring(0, 100);
+            }
+          }
+        } catch (parseError) {
+          console.error('[Auth] Failed to parse error response:', parseError);
+        }
+        
+        throw new Error(errorMessage);
       }
 
+      // Reload profile to get updated data
       await loadProfile(user.id);
+      console.log('[Auth] ✅ Profile updated successfully');
       return { error: null };
     } catch (error: any) {
       console.error('[Auth] Error updating profile:', error);
-      return { error };
+      const errorMessage = error?.message || 'Failed to update profile';
+      return { error: errorMessage };
     }
   }, [user, loadProfile, getAuthToken]);
 

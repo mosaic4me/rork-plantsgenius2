@@ -23,10 +23,23 @@ export default function SettingsScreen() {
   const isOAuthUser = authProvider === 'google' || authProvider === 'apple';
 
   const handleSave = async () => {
+    if (!fullName.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Full name cannot be empty',
+        position: 'top',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const { error } = await updateProfile({ full_name: fullName });
-      if (error) throw error;
+      if (error) {
+        const errorMessage = typeof error === 'string' ? error : error.message || 'Failed to update profile';
+        throw new Error(errorMessage);
+      }
 
       Toast.show({
         type: 'success',
@@ -35,10 +48,12 @@ export default function SettingsScreen() {
         position: 'top',
       });
     } catch (error: any) {
+      console.error('[Settings] Error updating profile:', error);
+      const errorMessage = error?.message || 'Failed to update profile';
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Failed to update profile: ' + error.message,
+        text2: errorMessage,
         position: 'top',
       });
     } finally {

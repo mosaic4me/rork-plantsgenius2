@@ -3,7 +3,7 @@ import { trpcServer } from "@hono/trpc-server";
 import { cors } from "hono/cors";
 import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
-import { findUserByEmail, createUser, createSubscription, findUserById } from '@/lib/mongodb';
+import { findUserByEmail, createUser, createSubscription, findUserById, updateUser } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import validator from 'validator';
@@ -219,6 +219,98 @@ app.post("/api/auth/signin", async (c) => {
   } catch (error: any) {
     console.error('[REST SignIn] Error:', error.message);
     return c.json({ error: error.message || 'Failed to sign in' }, 500);
+  }
+});
+
+app.put("/api/user/:id", async (c) => {
+  try {
+    console.log('[REST UpdateUser] Request received');
+    const userId = c.req.param('id');
+    const authHeader = c.req.header('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[REST UpdateUser] Missing or invalid auth header');
+      return c.json({ error: 'Unauthorized: Missing authentication token' }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    
+    if (!process.env.JWT_SECRET) {
+      console.error('[REST UpdateUser] CRITICAL: JWT_SECRET not configured');
+      return c.json({ error: 'Server configuration error' }, 500);
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('[REST UpdateUser] Token verified for user:', decoded.userId);
+    } catch (jwtError: any) {
+      console.error('[REST UpdateUser] JWT verification failed:', jwtError.message);
+      return c.json({ error: 'Unauthorized: Invalid token' }, 401);
+    }
+
+    if (decoded.userId !== userId) {
+      console.error('[REST UpdateUser] User ID mismatch');
+      return c.json({ error: 'Unauthorized: Cannot update another user\'s profile' }, 403);
+    }
+
+    const body = await c.req.json();
+    const { fullName } = body;
+
+    if (!fullName) {
+      console.log('[REST UpdateUser] Missing fullName field');
+      return c.json({ error: 'Missing required field: fullName' }, 400);
+    }
+
+    if (typeof fullName !== 'string') {
+      console.log('[REST UpdateUser] Invalid fullName type');
+      return c.json({ error: 'fullName must be a string' }, 400);
+    }
+
+    const sanitizedName = validator.escape(fullName.trim());
+
+    if (sanitizedName.length < 2 || sanitizedName.length > 100) {
+      console.log('[REST UpdateUser] Invalid name length');
+      return c.json({ error: 'Full name must be between 2 and 100 characters' }, 400);
+    }
+
+    console.log('[REST UpdateUser] Updating user profile...');
+    await updateUser(userId, { fullName: sanitizedName });
+
+    const updatedUser = await findUserById(userId);
+    if (!updatedUser) {
+      console.error('[REST UpdateUser] User not found after update');
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    console.log('[REST UpdateUser] Profile updated successfully');
+    return c.json({
+      id: updatedUser._id!.toString(),
+      email: updatedUser.email,
+      fullName: updatedUser.fullName,
+    });
+  } catch (error: any) {
+    console.error('[REST UpdateUser] Error:', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack?.substring(0, 500),
+    });
+    
+    let errorMessage = 'Failed to update user profile';
+    
+    if (error?.message) {
+      if (error.message.includes('MongoDB') || error.message.includes('database')) {
+        errorMessage = 'Database error. Please try again later.';
+        return c.json({ error: errorMessage }, 503);
+      } else if (error.message.includes('network') || error.message.includes('ECONNREFUSED')) {
+        errorMessage = 'Service temporarily unavailable. Please try again later.';
+        return c.json({ error: errorMessage }, 503);
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
+    return c.json({ error: errorMessage }, 500);
   }
 });
 
