@@ -713,10 +713,25 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           console.log('[Auth] ✅ Scan count incremented successfully (authenticated user)');
           return { success: true };
         } catch (apiError: any) {
+          // Handle specific tRPC errors gracefully
+          const errorMessage = apiError?.message || String(apiError);
+          
+          if (errorMessage.includes('JSON Parse error') || 
+              errorMessage.includes('Unexpected character') ||
+              errorMessage.includes('BACKEND_NOT_AVAILABLE') ||
+              errorMessage.includes('404')) {
+            console.log('[Auth] Backend not available, using local-only scan counting');
+            
+            // For authenticated users without backend: still track locally
+            // Keep the optimistic update and don't revert
+            console.log('[Auth] ✅ Scan counted locally (backend unavailable)');
+            return { success: true, local: true };
+          }
+          
           console.error('[Auth] API call failed for scan increment:', apiError);
           // Revert optimistic update on network failure
           await loadDailyScans(user.id);
-          return { success: false, error: apiError.message || 'Network error' };
+          return { success: false, error: errorMessage };
         }
       } else {
         // Guest user - validate before incrementing
