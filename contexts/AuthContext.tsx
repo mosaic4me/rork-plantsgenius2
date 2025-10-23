@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { signInWithGoogle, signInWithApple, type OAuthUser } from '@/utils/oauthHelpers';
+import { trpcClient } from '@/lib/trpc';
 
 const getApiBaseUrl = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -693,12 +694,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       const today = new Date().toLocaleDateString('en-CA');
 
       if (user) {
-        const token = await getAuthToken();
-        if (!token) {
-          console.error('[Auth] No auth token available for scan increment');
-          return { success: false, error: 'Not authenticated' };
-        }
-
         // Optimistic update - immediately decrement UI
         setDailyScansRemaining(prev => {
           const newValue = Math.max(0, prev - 1);
@@ -707,21 +702,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         });
 
         try {
-          const response = await fetch(`${API_BASE_URL}/api/scans/${user.id}/increment`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ date: today }),
+          // Use tRPC client to increment scan count
+          await trpcClient.scans.incrementScan.mutate({
+            userId: user.id,
+            date: today,
           });
-
-          if (!response.ok) {
-            console.error('[Auth] Server returned error for scan increment:', response.status);
-            // Revert optimistic update on failure
-            await loadDailyScans(user.id);
-            return { success: false, error: `Server error: ${response.status}` };
-          }
 
           // Reload from server to ensure sync
           await loadDailyScans(user.id);
