@@ -238,7 +238,6 @@ export default function AuthScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.title}>PlantsGenius</Text>
           <Text style={styles.subtitle}>
             {isSignUp ? 'Create your account' : 'Welcome back!'}
           </Text>
@@ -410,27 +409,13 @@ const styles = StyleSheet.create({
   logoContainer: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-    padding: 10,
   },
   logoImage: {
     width: 100,
     height: 100,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: '700' as const,
-    color: Colors.black,
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,

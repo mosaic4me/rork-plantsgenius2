@@ -90,13 +90,6 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Welcome back,</Text>
             <Text style={styles.name}>{user?.fullName || profile?.full_name || 'Plant Enthusiast'}!</Text>
           </View>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={require('@/assets/images/icon.png')}
-              style={styles.avatarLogo}
-              resizeMode="contain"
-            />
-          </View>
         </View>
 
         {!hasActiveSubscription() && (
@@ -419,24 +412,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700' as const,
     color: Colors.black,
-  },
-  avatarContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    padding: 4,
-  },
-  avatarLogo: {
-    width: 48,
-    height: 48,
   },
   scansCard: {
     marginHorizontal: 24,
