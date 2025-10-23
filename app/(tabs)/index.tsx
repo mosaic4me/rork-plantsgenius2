@@ -25,7 +25,7 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { stats, history } = useApp();
-  const { profile, dailyScansRemaining, hasActiveSubscription } = useAuth();
+  const { user, profile, dailyScansRemaining, hasActiveSubscription } = useAuth();
 
   const handleScanPress = () => {
     if (Platform.OS !== 'web') {
@@ -63,7 +63,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.name}>{profile?.full_name || 'Plant Lover'}!</Text>
+            <Text style={styles.name}>{user?.fullName || profile?.full_name || 'Plant Enthusiast'}!</Text>
           </View>
           <View style={styles.avatarContainer}>
             <Image
@@ -89,7 +89,6 @@ export default function HomeScreen() {
               <Sparkles size={24} color={Colors.accent} />
               <View style={styles.scansText}>
                 <Text style={styles.scansCount}>{dailyScansRemaining} free scans left today</Text>
-                <Text style={styles.scansSubtext}>Tap to upgrade for unlimited scans</Text>
               </View>
             </View>
           </TouchableOpacity>

@@ -288,6 +288,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* SUBSCRIPTION PLANS SECTION - COMMENTED OUT (Not configured yet)
         <View style={styles.premiumCard}>
           <View style={styles.premiumHeader}>
             <Crown size={32} color={Colors.warning} />
@@ -296,7 +297,7 @@ export default function ProfileScreen() {
               <Text style={styles.premiumSubtitle}>Choose the plan that fits your needs</Text>
             </View>
           </View>
-          
+
           <View style={styles.planComparisonCard}>
             <Text style={styles.planComparisonTitle}>Current Plan: {subscription ? (subscription.plan_type === 'basic' ? 'Basic' : 'Premium') : 'Free'}</Text>
             <View style={styles.planPerks}>
@@ -329,12 +330,12 @@ export default function ProfileScreen() {
 
           <View style={styles.plansContainer}>
             <Text style={styles.plansTitle}>Available Plans</Text>
-            
+
             <View style={styles.planCard}>
               <Text style={styles.planTitle}>Basic Plan</Text>
               <Text style={styles.planPrice}>{isLoadingPrices ? 'Loading...' : prices.basicMonthly}/month</Text>
               <Text style={styles.planSavings}>{isLoadingPrices ? 'Loading...' : prices.basicYearly}/year (Save 10%)</Text>
-              
+
               <View style={styles.planFeatures}>
                 <FeatureItem text="10 scans per day" />
                 <FeatureItem text="150 scans per month" />
@@ -342,7 +343,7 @@ export default function ProfileScreen() {
                 <FeatureItem text="Add up to 5 plants in garden" />
                 <FeatureItem text="Basic support" />
               </View>
-              
+
               <TouchableOpacity
                 style={styles.planButton}
                 onPress={() => handleSubscribe('basic', 'monthly')}
@@ -364,7 +365,7 @@ export default function ProfileScreen() {
               <Text style={styles.planTitle}>Premium Plan</Text>
               <Text style={styles.planPrice}>{isLoadingPrices ? 'Loading...' : prices.premiumMonthly}/month</Text>
               <Text style={styles.planSavings}>{isLoadingPrices ? 'Loading...' : prices.premiumYearly}/year (Save 12%)</Text>
-              
+
               <View style={styles.planFeatures}>
                 <FeatureItem text="50 scans per day" />
                 <FeatureItem text="600 scans per month" />
@@ -373,7 +374,7 @@ export default function ProfileScreen() {
                 <FeatureItem text="Priority support" />
                 <FeatureItem text="Advanced plant care tips" />
               </View>
-              
+
               <TouchableOpacity
                 style={styles.planButton}
                 onPress={() => handleSubscribe('premium', 'monthly')}
@@ -389,6 +390,7 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+        */}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
@@ -399,12 +401,14 @@ export default function ProfileScreen() {
             subtitle="Edit profile, reset password"
             onPress={() => handlePress('settings')}
           />
+          {/* BILLING MENU ITEM - COMMENTED OUT (Not configured yet)
           <MenuItem
             icon={<CreditCard size={20} color={Colors.primary} />}
             title="Billing & Subscription"
             subtitle="Manage your subscription and payment"
             onPress={() => handlePress('billing')}
           />
+          */}
           <MenuItem
             icon={<Mail size={20} color={Colors.primary} />}
             title="Contact Us"
