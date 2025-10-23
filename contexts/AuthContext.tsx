@@ -689,12 +689,25 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const incrementDailyScan = useCallback(async () => {
     try {
+      console.log('[Auth] Incrementing daily scan count');
       const today = new Date().toLocaleDateString('en-CA');
-      
+
       if (user) {
         const token = await getAuthToken();
-        if (token) {
-          await fetch(`${API_BASE_URL}/api/scans/${user.id}/increment`, {
+        if (!token) {
+          console.error('[Auth] No auth token available for scan increment');
+          return { success: false, error: 'Not authenticated' };
+        }
+
+        // Optimistic update - immediately decrement UI
+        setDailyScansRemaining(prev => {
+          const newValue = Math.max(0, prev - 1);
+          console.log('[Auth] Optimistic update: scans remaining', prev, '->', newValue);
+          return newValue;
+        });
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/scans/${user.id}/increment`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -702,16 +715,61 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
             },
             body: JSON.stringify({ date: today }),
           });
+
+          if (!response.ok) {
+            console.error('[Auth] Server returned error for scan increment:', response.status);
+            // Revert optimistic update on failure
+            await loadDailyScans(user.id);
+            return { success: false, error: `Server error: ${response.status}` };
+          }
+
+          // Reload from server to ensure sync
           await loadDailyScans(user.id);
+          console.log('[Auth] ✅ Scan count incremented successfully (authenticated user)');
+          return { success: true };
+        } catch (apiError: any) {
+          console.error('[Auth] API call failed for scan increment:', apiError);
+          // Revert optimistic update on network failure
+          await loadDailyScans(user.id);
+          return { success: false, error: apiError.message || 'Network error' };
         }
       } else {
+        // Guest user - validate before incrementing
+        const storedDate = await AsyncStorage.getItem('lastScanResetDate');
         const storedCount = await AsyncStorage.getItem('dailyScanCount');
-        const newCount = parseInt(storedCount || '0', 10) + 1;
+
+        // Check if date changed (day reset)
+        if (storedDate !== today) {
+          console.log('[Auth] New day detected, resetting guest scan count');
+          await AsyncStorage.multiSet([
+            ['lastScanResetDate', today],
+            ['dailyScanCount', '1']
+          ]);
+          setDailyScansRemaining(1);
+          setLastResetDate(today);
+          console.log('[Auth] ✅ Scan count incremented (guest user, new day)');
+          return { success: true };
+        }
+
+        const currentCount = parseInt(storedCount || '0', 10);
+
+        // Validate we haven't exceeded limit
+        if (currentCount >= 2) {
+          console.warn('[Auth] Guest user already at scan limit');
+          setDailyScansRemaining(0);
+          return { success: false, error: 'Daily scan limit reached' };
+        }
+
+        const newCount = currentCount + 1;
         await AsyncStorage.setItem('dailyScanCount', newCount.toString());
-        setDailyScansRemaining(Math.max(0, 2 - newCount));
+        const newRemaining = Math.max(0, 2 - newCount);
+        setDailyScansRemaining(newRemaining);
+        console.log('[Auth] ✅ Scan count incremented (guest user):', currentCount, '->', newCount, ', remaining:', newRemaining);
+        return { success: true };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Auth] Error incrementing daily scan:', error);
+      return { success: false, error: error.message || 'Unknown error' };
     }
   }, [user, loadDailyScans, getAuthToken]);
 

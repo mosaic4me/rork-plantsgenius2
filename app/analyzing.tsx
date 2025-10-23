@@ -165,9 +165,30 @@ export default function AnalyzingScreen() {
         setProgress(100);
 
         if (!cancelled) {
+          // Increment scan count first (this is the critical operation)
+          console.log('[Analyzing] Incrementing scan count...');
+          const scanResult = await incrementDailyScan();
+
+          if (!scanResult || !scanResult.success) {
+            console.error('[Analyzing] Failed to increment scan count:', scanResult?.error);
+            Toast.show({
+              type: 'error',
+              text1: 'Scan Count Error',
+              text2: scanResult?.error || 'Failed to update scan count. Please try again.',
+              position: 'top',
+              visibilityTime: 4000,
+            });
+
+            // Still add to history and navigate since identification was successful
+            // User got the service, so we shouldn't block them
+            console.log('[Analyzing] Continuing despite scan count error...');
+          } else {
+            console.log('[Analyzing] ✅ Scan count incremented successfully');
+          }
+
+          // Add to history
           await addToHistory(plantData);
-          await incrementDailyScan();
-          
+
           Toast.show({
             type: 'success',
             text1: 'Plant Identified!',
@@ -175,15 +196,17 @@ export default function AnalyzingScreen() {
             position: 'top',
             visibilityTime: 2000,
           });
-          
+
           setTimeout(() => {
-            router.replace({
-              pathname: '/results' as any,
-              params: { 
-                imageUri: params.imageUri,
-                plantData: JSON.stringify(plantData),
-              },
-            });
+            if (!cancelled) {
+              router.replace({
+                pathname: '/results' as any,
+                params: {
+                  imageUri: params.imageUri,
+                  plantData: JSON.stringify(plantData),
+                },
+              });
+            }
           }, 500);
         }
       } catch (err: any) {
