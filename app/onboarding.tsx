@@ -164,7 +164,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <Animated.View 
+      <Animated.View
         style={[
           styles.logoHeader,
           {
@@ -176,7 +176,7 @@ export default function OnboardingScreen() {
         ]}
       >
         <Image
-          source={{ uri: 'https://r2-pub.rork.com/generated-images/b52b2347-5e0a-4a18-9102-7b8a756bf443.png' }}
+          source={require('@/assets/images/icon.png')}
           style={styles.logo}
           resizeMode="contain"
         />

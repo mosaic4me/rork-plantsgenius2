@@ -67,7 +67,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.avatarContainer}>
             <Image
-              source={{ uri: 'https://r2-pub.rork.com/generated-images/b52b2347-5e0a-4a18-9102-7b8a756bf443.png' }}
+              source={require('@/assets/images/icon.png')}
               style={styles.avatarLogo}
               resizeMode="contain"
             />
