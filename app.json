@@ -2,7 +2,7 @@
   "expo": {
     "name": "PlantsGenius",
     "slug": "plant-genius",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.rork.plant-genius",
+      "bundleIdentifier": "com.procourt.plant-genius",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone",
@@ -33,7 +33,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.plant-genius",
+      "package": "com.procourt.plant-genius",
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",
