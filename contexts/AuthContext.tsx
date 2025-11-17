@@ -256,7 +256,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     };
 
     initAuth();
-  }, []);
+  }, [getAuthToken, loadDailyScans, loadProfile, loadSubscription]);
 
   useEffect(() => {
     const checkDailyReset = async () => {
@@ -279,7 +279,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return () => {
       subscription.remove();
     };
-  }, [lastResetDate, user]);
+  }, [lastResetDate, user, loadDailyScans]);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     try {
